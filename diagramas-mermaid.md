@@ -26,6 +26,7 @@ Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.m
 20. Estratégia inicial de prototipação
 21. Sequência dos próximos passos
 22. Resumo da arquitetura
+23. Casos de uso do sistema
 
 ---
 
@@ -321,7 +322,7 @@ Origem: seção 30, linha 1004.
 
 ```mermaid
 flowchart TD
-    A[Simular "Hey CuidarAI"] --> B[Iniciar sessão]
+    A["Simular 'Hey CuidarAI'"] --> B[Iniciar sessão]
     B --> C[Injetar áudio e frames gravados]
     C --> D[Fake AI produz observações]
     D --> E[Montar AdministrationEvidence]
@@ -369,3 +370,100 @@ flowchart TD
     DT[Data Adapter] --> C
     C --> D
 ```
+
+## 23. Casos de uso do sistema
+
+Origem: rascunho de caso de uso fornecido em 22/08/2026.
+
+```mermaid
+flowchart LR
+    RESPONSAVEL["👤 Responsável"]
+    CUIDADOR["👤 Cuidador"]
+
+    subgraph SISTEMA["Sistema CuidarAI"]
+        direction TB
+
+        subgraph GESTAO["Cadastro e acompanhamento"]
+            direction TB
+            UC_CAD_RES([Cadastrar residente])
+            UC_CAD_PRESC([Cadastrar prescrição])
+            UC_HIST([Consultar histórico])
+            UC_ALERTA_OMISSA([Receber alerta de dose omitida])
+            UC_ALERTA_URG([Receber alerta de urgência])
+        end
+
+        subgraph CUIDADO["Administração e assistência"]
+            direction TB
+            UC_LEMBRETE([Receber lembrete de horário])
+            UC_ADMIN([Administrar medicamento])
+            UC_WAKE([Iniciar sessão por wake word])
+            UC_IDENT([Identificar residente])
+            UC_VERIF([Verificar medicamento e dose])
+            UC_VOZ([Confirmar administração por voz])
+            UC_URG([Reportar urgência])
+        end
+
+        subgraph APOIO["Comportamentos de apoio"]
+            direction TB
+            UC_CONS_PRESC([Consultar prescrição ativa])
+            UC_MONITORAR([Monitorar janela de administração])
+            UC_REGISTRAR([Registrar administração])
+        end
+    end
+
+    RESPONSAVEL --- UC_CAD_RES
+    RESPONSAVEL --- UC_CAD_PRESC
+    RESPONSAVEL --- UC_HIST
+    RESPONSAVEL --- UC_ALERTA_OMISSA
+    RESPONSAVEL --- UC_ALERTA_URG
+
+    CUIDADOR --- UC_LEMBRETE
+    CUIDADOR --- UC_ADMIN
+    CUIDADOR --- UC_URG
+
+    UC_CAD_PRESC -. "«include»" .-> UC_CONS_PRESC
+    UC_LEMBRETE -. "«include»" .-> UC_CONS_PRESC
+    UC_ADMIN -. "«include»" .-> UC_IDENT
+    UC_ADMIN -. "«include»" .-> UC_VERIF
+    UC_ADMIN -. "«include»" .-> UC_CONS_PRESC
+    UC_ADMIN -. "«include»" .-> UC_VOZ
+    UC_ADMIN -. "«include»" .-> UC_REGISTRAR
+    UC_WAKE -. "«extend»" .-> UC_ADMIN
+    UC_MONITORAR -. "«include»" .-> UC_CONS_PRESC
+    UC_ALERTA_OMISSA -. "«extend»" .-> UC_MONITORAR
+    UC_URG -. "«include»" .-> UC_ALERTA_URG
+
+    classDef actor fill:#f4f1ea,stroke:#666,color:#444,stroke-width:1px;
+    classDef management fill:#eeedff,stroke:#5651b5,color:#403ca0;
+    classDef care fill:#e1f5ef,stroke:#15806d,color:#126a5b;
+    classDef support fill:#fff8df,stroke:#a77a16,color:#70520f;
+    class RESPONSAVEL,CUIDADOR actor;
+    class UC_CAD_RES,UC_CAD_PRESC,UC_HIST,UC_ALERTA_OMISSA,UC_ALERTA_URG management;
+    class UC_LEMBRETE,UC_ADMIN,UC_WAKE,UC_IDENT,UC_VERIF,UC_VOZ,UC_URG care;
+    class UC_CONS_PRESC,UC_MONITORAR,UC_REGISTRAR support;
+```
+
+### Justificativa das relações
+
+| Origem | Relação | Destino | Motivo |
+|---|---|---|---|
+| Cadastrar prescrição | `«include»` | Consultar prescrição ativa | O sistema precisa consultar o estado atual para criar ou alterar uma prescrição sem gerar sobreposição indevida. O residente já cadastrado é tratado como pré-condição, não como `include`, pois não é recadastrado em toda operação. |
+| Receber lembrete de horário | `«include»` | Consultar prescrição ativa | O horário e a dose do lembrete vêm necessariamente de uma prescrição vigente. |
+| Administrar medicamento | `«include»` | Identificar residente | A identificação é obrigatória para vincular a dose à pessoa correta. |
+| Administrar medicamento | `«include»` | Verificar medicamento e dose | A conferência é obrigatória antes da confirmação da administração. |
+| Administrar medicamento | `«include»` | Consultar prescrição ativa | Medicamento, dose e janela de horário precisam ser comparados com a prescrição vigente. |
+| Administrar medicamento | `«include»` | Confirmar administração por voz | No fluxo desenhado, a confirmação falada é uma etapa obrigatória da administração. |
+| Administrar medicamento | `«include»` | Registrar administração | Uma administração concluída precisa gerar histórico e evidência de auditoria. |
+| Iniciar sessão por wake word | `«extend»` | Administrar medicamento | A wake word é uma forma opcional de iniciar o caso principal; a administração também pode começar por outro gatilho, como a interface do aplicativo. |
+| Monitorar janela de administração | `«include»` | Consultar prescrição ativa | O monitoramento depende dos horários definidos na prescrição. |
+| Receber alerta de dose omitida | `«extend»` | Monitorar janela de administração | O alerta só acontece sob a condição de a janela terminar sem uma administração confirmada. |
+| Reportar urgência | `«include»` | Receber alerta de urgência | Todo reporte aceito deve notificar o responsável; por isso, o envio/recebimento do alerta faz parte obrigatória do fluxo. |
+
+### Observações de modelagem
+
+- As linhas contínuas representam associações entre atores e casos de uso; não indicam ordem de execução.
+- `«include»` representa comportamento obrigatório e reutilizado pelo caso de uso de origem.
+- `«extend»` representa comportamento condicional ou opcional apontando para o caso de uso base.
+- Os casos “Administrar medicamento”, “Consultar prescrição ativa”, “Monitorar janela de administração” e “Registrar administração” foram acrescentados para explicitar o objetivo principal e evitar dependências ambíguas entre etapas isoladas.
+- “Alerta: dose omissa” e “Alerta de urgência” foram renomeados como ações observáveis pelo ator: “Receber alerta de dose omitida” e “Receber alerta de urgência”.
+- “Cadastrar residente” é pré-condição de “Cadastrar prescrição”. Não foi usado `«include»`, pois `include` significaria executar o cadastro do residente sempre que uma prescrição fosse cadastrada.
