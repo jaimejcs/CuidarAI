@@ -1660,7 +1660,6 @@ Dependency Injection
 cliente HTTP
 serialização
 SDK dos óculos
-mecanismo de wake word
 implementação/provedor da IA local
 framework Kotlin da API mínima
 provedor e especificação da infraestrutura remota
@@ -1694,23 +1693,22 @@ observabilidade
 flowchart TD
     S1[1. Refinar AdministrationSession e AdministrationEvidence]
     S2[2. Definir contrato inicial do AiGateway]
-    S3[3. Definir CaptureDevice e WakeWordDetector]
-    S4[4. Modelar AdministrationValidator]
-    S5[5. Modelar AdministrationStateMachine]
-    S6[6. Definir Patient / Prescription / Medication / Dosage]
-    S7[7. Definir eventos de domínio]
-    S8[8. Criar adapters fake]
-    S9[9. Implementar AdministrationSessionCoordinator]
-    S10[10. Criar ViewModel + UiState]
-    S11[11. Criar tela Compose do fluxo]
-    S12[12. Implementar Room + SQLite]
-    S13[13. Implementar Outbox + WorkManager]
-    S14[14. Implementar API mínima + PostgreSQL]
-    S15[15. Validar sincronização, idempotência e conflitos]
-    S16[16. Implementar notificações FCM + acknowledgement]
-    S17[17. Substituir adapters de IA/dispositivo por implementações reais]
+    S3[3. Modelar AdministrationValidator]
+    S4[4. Modelar AdministrationStateMachine]
+    S5[5. Definir Patient / Prescription / Medication / Dosage]
+    S6[6. Definir eventos de domínio]
+    S7[7. Criar adapters fake]
+    S8[8. Implementar AdministrationSessionCoordinator]
+    S9[9. Criar ViewModel + UiState]
+    S10[10. Criar tela Compose do fluxo]
+    S11[11. Implementar Room + SQLite]
+    S12[12. Implementar Outbox + WorkManager]
+    S13[13. Implementar API mínima + PostgreSQL]
+    S14[14. Validar sincronização, idempotência e conflitos]
+    S15[15. Implementar notificações FCM + acknowledgement]
+    S16[16. Substituir adapters de IA/dispositivo por implementações reais]
 
-    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13 --> S14 --> S15 --> S16 --> S17
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13 --> S14 --> S15 --> S16
 ```
 
 ---
