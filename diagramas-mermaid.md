@@ -1,6 +1,6 @@
 # Compilado de diagramas — CuidarIA
 
-Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.md`](./arquitetura-app-ia.md). Cada diagrama permanece em um bloco independente para facilitar sua revisão e futura exportação para SVG.
+Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.md`](./arquitetura-app-ia.md) e os fluxos visuais de [`CuidarIA-secao-A-final.md`](./CuidarIA-secao-A-final.md). Cada diagrama permanece em um bloco independente para facilitar sua revisão e futura exportação para SVG.
 
 ## Índice
 
@@ -29,6 +29,13 @@ Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.m
 23. Sequência dos próximos passos
 24. Resumo da arquitetura
 25. Casos de uso do sistema
+26. Fluxo end-to-end
+27. Pipeline de áudio
+28. Pipeline de visão
+29. Veredictos e política de override
+30. Reconciliador: uma porta, quatro camadas
+31. Ciclo de vida do dado
+32. Cascata de custo crescente
 
 ---
 
@@ -624,29 +631,28 @@ flowchart TD
 
 ## 23. Sequência dos próximos passos
 
-Origem: seção 33 de `arquitetura-app-ia.md`.
+Origem: seção 33 de `arquitetura-app-ia-completa.md`.
 
 ```mermaid
 flowchart TD
     S1[1. Refinar AdministrationSession e AdministrationEvidence]
     S2[2. Definir contrato inicial do AiGateway]
-    S3[3. Definir CaptureDevice e WakeWordDetector]
-    S4[4. Modelar AdministrationValidator]
-    S5[5. Modelar AdministrationStateMachine]
-    S6[6. Definir Patient / Prescription / Medication / Dosage]
-    S7[7. Definir eventos de domínio]
-    S8[8. Criar adapters fake]
-    S9[9. Implementar AdministrationSessionCoordinator]
-    S10[10. Criar ViewModel + UiState]
-    S11[11. Criar tela Compose do fluxo]
-    S12[12. Implementar Room + SQLite]
-    S13[13. Implementar Outbox + WorkManager]
-    S14[14. Implementar API mínima + PostgreSQL]
-    S15[15. Validar sincronização, idempotência e conflitos]
-    S16[16. Implementar notificações FCM + acknowledgement]
-    S17[17. Substituir adapters de IA/dispositivo por implementações reais]
+    S3[3. Modelar AdministrationValidator]
+    S4[4. Modelar AdministrationStateMachine]
+    S5[5. Definir Patient / Prescription / Medication / Dosage]
+    S6[6. Definir eventos de domínio]
+    S7[7. Criar adapters fake]
+    S8[8. Implementar AdministrationSessionCoordinator]
+    S9[9. Criar ViewModel + UiState]
+    S10[10. Criar tela Compose do fluxo]
+    S11[11. Implementar Room + SQLite]
+    S12[12. Implementar Outbox + WorkManager]
+    S13[13. Implementar API mínima + PostgreSQL]
+    S14[14. Validar sincronização, idempotência e conflitos]
+    S15[15. Implementar notificações FCM + acknowledgement]
+    S16[16. Substituir adapters de IA/dispositivo por implementações reais]
 
-    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13 --> S14 --> S15 --> S16 --> S17
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13 --> S14 --> S15 --> S16
 ```
 
 ## 24. Resumo da arquitetura
@@ -781,3 +787,153 @@ flowchart LR
 - A interação de administração é orientada pelos óculos. A aplicação oferece apoio e acompanhamento, mas não inicia pela interface o fluxo de administração de medicamento.
 - “Alerta: dose omissa” e “Alerta de urgência” foram renomeados como ações observáveis pelo ator: “Receber alerta de dose omitida” e “Receber alerta de urgência”.
 - “Cadastrar paciente” é pré-condição de “Cadastrar prescrição”. Não foi usado `«include»`, pois `include` significaria executar o cadastro do paciente sempre que uma prescrição fosse cadastrada.
+
+## 26. Fluxo end-to-end
+
+Origem: seção A3, diagrama 1 de `CuidarIA-secao-A-final.md`.
+
+```mermaid
+flowchart TB
+    A["Ativação<br/>KWS sherpa-onnx"] --> R["Rosto<br/>SCRFD-500MF"]
+    A --> F["Fala<br/>declaração do cuidador"]
+    A --> E["Embalagem<br/>código de barras · PaddleOCR"]
+
+    R --> EMB["Embedding 512d<br/>MobileFaceNet"]
+    EMB --> BD["Busca 1:N<br/>cosseno em memória"]
+    BD --> CONF["Confirmação humana<br/>cuidador valida o nome"]
+    CONF --> C["Candidatos ativos<br/>prescrições do residente"]
+
+    F --> T["Transcrição<br/>Parakeet TDT int8"]
+    E --> N["Nome impresso"]
+
+    C --> RC["Reconciliador"]
+    T --> RC
+    N --> RC
+
+    RC --> DD["Decisão determinística<br/>janela · LASA · histórico"]
+    DD --> LOG["Registro local<br/>persiste antes de falar"]
+    LOG --> TTS["Resposta pelo óculos<br/>Piper pré-sintetizado"]
+    LOG -. outbox .-> SY["Sincronização<br/>fora do caminho crítico"]
+```
+
+## 27. Pipeline de áudio
+
+Origem: seção A3.1, diagrama 2 de `CuidarIA-secao-A-final.md`.
+
+```mermaid
+flowchart TB
+    M["Microfone dos óculos"] --> V["Silero VAD<br/>descarta silêncio"]
+    V --> K["KWS sherpa-onnx<br/>Hey CuidarIA"]
+    K --> P["Parakeet TDT v3 pt-BR int8<br/>WER 0,143 em fala espontânea"]
+    P --> CD["Casamento determinístico<br/>normalização + sinônimos"]
+    CD --> RC["Reconciliador"]
+    OCR["Nome impresso<br/>vindo do canal de visão"] --> RC
+    RC --> DEC["Decisão determinística<br/>limiar + flag LASA"]
+    DEC --> OUT["Validado ou abstenção"]
+```
+
+## 28. Pipeline de visão
+
+Origem: seção A3.1, diagrama 3 de `CuidarIA-secao-A-final.md`.
+
+```mermaid
+flowchart TB
+    CAP["Captura sob demanda<br/>1 a 3 frames"] --> RO["Detecção de rosto<br/>SCRFD-500MF + 5 pontos"]
+    CAP --> EM["Embalagem"]
+
+    RO --> AL["Alinhamento 112×112<br/>transformação de similaridade"]
+    AL --> VEC["Embedding 512d<br/>MobileFaceNet"]
+    VEC --> BUS["Busca 1:N em memória<br/>~800 vetores · abaixo de 1 ms"]
+    BUS --> REG["THRESH_MATCH · MIN_HITS · MARGIN"]
+    REG --> CONF["Confirmação humana"]
+
+    EM --> V1["V1 · código de barras"]
+    V1 -- não legível --> V2["V2 · PaddleOCR PP-OCRv5"]
+    V2 -- não legível --> V3["V3 · pergunta verbal"]
+    V1 --> NOME["Nome e candidatos"]
+    V2 --> NOME
+    EM --> IMG["Imagem arquivada<br/>único artefato visual"]
+```
+
+## 29. Veredictos e política de override
+
+Origem: seção A4, diagrama 4 de `CuidarIA-secao-A-final.md`.
+
+```mermaid
+flowchart TB
+    EV["Evidências reunidas<br/>rosto · fala · embalagem"] --> VAL["Validação determinística"]
+
+    VAL -- tudo confere --> OK["CONFIRMED"]
+    VAL -- divergência --> DG["DIVERGENT"]
+    VAL -- confiança abaixo do limiar --> UN["UNCERTAIN"]
+
+    DG --> Q{"a divergência<br/>é temporal?"}
+    Q -- sim --> OVR["Override permitido<br/>registrado com motivo"]
+    Q -- não · medicamento ou paciente --> BLQ["Sem override<br/>não existe justificativa"]
+
+    OK --> LOG["Registro no log"]
+    OVR --> LOG
+    BLQ --> LOG
+    UN --> LOG
+    LOG --> FAL["Resposta falada<br/>earcon distinto por veredito"]
+```
+
+## 30. Reconciliador: uma porta, quatro camadas
+
+Origem: seção A5, diagrama 5 de `CuidarIA-secao-A-final.md`.
+
+```mermaid
+flowchart TB
+    T["Transcrição<br/>do Parakeet"] --> RC
+    N["Nome impresso<br/>do PaddleOCR"] --> RC
+    C["Candidatos<br/>do cadastro do residente"] --> RC
+
+    subgraph RC["Reconciliador"]
+        direction TB
+        L1["1 · Normalização e match exato<br/>dosagem, forma, acentos"]
+        L2["2 · Sinônimos e apelidos<br/>marca × genérico, coloquial"]
+        L3["3 · Distância fonética<br/>erro de transcrição"]
+        L4["4 · Llama 3.2 3B int4<br/>só o resíduo · saída restrita"]
+        L1 -- sem match --> L2
+        L2 -- sem match --> L3
+        L3 -- sem match --> L4
+    end
+
+    RC --> VK["Validador Kotlin<br/>fora da lista = UNCERTAIN"]
+    VK --> O["Um candidato ou nenhum"]
+```
+
+## 31. Ciclo de vida do dado
+
+Origem: seção A7, diagrama 6 de `CuidarIA-secao-A-final.md`.
+
+```mermaid
+flowchart LR
+    CAP["Captura<br/>áudio · frame facial · vídeo"] --> PROC["Processamento local<br/>transcrição · embedding"]
+    PROC --> DESC["Descarte imediato<br/>nunca toca o disco"]
+    PROC --> RES["Resultado estruturado<br/>texto · vetor · score"]
+
+    RES --> LOC["Persistência local cifrada<br/>SQLCipher + Android Keystore"]
+    LOC --> OBX["Outbox"]
+    OBX --> SYN["Sincronização HTTPS<br/>registro · prescrição · imagem"]
+```
+
+## 32. Cascata de custo crescente
+
+Origem: seção A7, diagrama 7 de `CuidarIA-secao-A-final.md`.
+
+```mermaid
+flowchart LR
+    VAD["Silero VAD<br/>contínuo · custo ~0"]
+    KWS["KWS<br/>custo baixo"]
+    STT["Parakeet int8<br/>~2–4 s de CPU alto"]
+    LLM["Llama int4<br/>raro"]
+
+    VAD -- voz detectada --> KWS
+    KWS -- palavra-chave --> STT
+    STT -- resíduo não resolvido --> LLM
+
+    VAD -- silêncio --> D1["ciclo encerra"]
+    KWS -- não é a palavra --> D2["ciclo encerra"]
+    STT -- casou na tabela --> D3["encerra sem LLM"]
+```

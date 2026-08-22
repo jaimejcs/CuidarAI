@@ -1,6 +1,6 @@
 # Compilado de diagramas — CuidarIA
 
-Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.md`](./arquitetura-app-ia.md). Cada diagrama permanece em um bloco independente para facilitar sua revisão e futura exportação para SVG.
+Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.md`](./arquitetura-app-ia.md) e os fluxos visuais de [`CuidarIA-secao-A-final.md`](./CuidarIA-secao-A-final.md). Cada diagrama permanece em um bloco independente para facilitar sua revisão e futura exportação para SVG.
 
 ## Índice
 
@@ -29,6 +29,13 @@ Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.m
 23. Sequência dos próximos passos
 24. Resumo da arquitetura
 25. Casos de uso do sistema
+26. Fluxo end-to-end
+27. Pipeline de áudio
+28. Pipeline de visão
+29. Veredictos e política de override
+30. Reconciliador: uma porta, quatro camadas
+31. Ciclo de vida do dado
+32. Cascata de custo crescente
 
 ---
 
@@ -166,7 +173,7 @@ Origem: seção 30, linha 1498.
 
 ## 23. Sequência dos próximos passos
 
-Origem: seção 33 de `arquitetura-app-ia.md`.
+Origem: seção 33 de `arquitetura-app-ia-completa.md`.
 
 ![diagram](./diagramas-exportados-23.svg)
 
@@ -213,3 +220,45 @@ Origem: rascunho de caso de uso fornecido em 22/08/2026.
 - A interação de administração é orientada pelos óculos. A aplicação oferece apoio e acompanhamento, mas não inicia pela interface o fluxo de administração de medicamento.
 - “Alerta: dose omissa” e “Alerta de urgência” foram renomeados como ações observáveis pelo ator: “Receber alerta de dose omitida” e “Receber alerta de urgência”.
 - “Cadastrar paciente” é pré-condição de “Cadastrar prescrição”. Não foi usado `«include»`, pois `include` significaria executar o cadastro do paciente sempre que uma prescrição fosse cadastrada.
+
+## 26. Fluxo end-to-end
+
+Origem: seção A3, diagrama 1 de `CuidarIA-secao-A-final.md`.
+
+![diagram](./diagramas-exportados-27.svg)
+
+## 27. Pipeline de áudio
+
+Origem: seção A3.1, diagrama 2 de `CuidarIA-secao-A-final.md`.
+
+![diagram](./diagramas-exportados-28.svg)
+
+## 28. Pipeline de visão
+
+Origem: seção A3.1, diagrama 3 de `CuidarIA-secao-A-final.md`.
+
+![diagram](./diagramas-exportados-29.svg)
+
+## 29. Veredictos e política de override
+
+Origem: seção A4, diagrama 4 de `CuidarIA-secao-A-final.md`.
+
+![diagram](./diagramas-exportados-30.svg)
+
+## 30. Reconciliador: uma porta, quatro camadas
+
+Origem: seção A5, diagrama 5 de `CuidarIA-secao-A-final.md`.
+
+![diagram](./diagramas-exportados-31.svg)
+
+## 31. Ciclo de vida do dado
+
+Origem: seção A7, diagrama 6 de `CuidarIA-secao-A-final.md`.
+
+![diagram](./diagramas-exportados-32.svg)
+
+## 32. Cascata de custo crescente
+
+Origem: seção A7, diagrama 7 de `CuidarIA-secao-A-final.md`.
+
+![diagram](./diagramas-exportados-33.svg)
