@@ -1381,7 +1381,7 @@ Infraestrutura remota
 └── agentes de métricas, logs e alertas
 
 Infraestrutura externa
-├── Object Storage para imagens
+├── Object Storage para imagens de medicamentos
 └── Object Storage separado para backups e WAL
 ```
 
@@ -1622,7 +1622,9 @@ falhas
 
 ---
 
-## 32. Stack Android inicial
+## 32. Stack, dependências e decisões em aberto
+
+### Stack Android inicial
 
 ```text
 Kotlin
@@ -1645,7 +1647,7 @@ WorkManager para sincronização persistente
 API HTTPS versionada
 Infraestrutura remota com WAF, proxy, API mínima e PostgreSQL
 PostgreSQL autogerenciado
-Object Storage externo para imagens e backups
+Object Storage externo para imagens de medicação e backups
 pgBackRest ou WAL-G para backup e PITR
 Google Play Services obrigatório nos dispositivos de produção
 Firebase Cloud Messaging como transporte push único
@@ -1653,41 +1655,33 @@ NotificationGateway para isolamento do provedor
 JSON para DTOs e payloads versionados
 ```
 
-Tecnologias ainda a definir:
+### Dependências tecnológicas ainda a definir
 
 ```text
 Dependency Injection
 cliente HTTP
 serialização
-SDK dos óculos
-implementação/provedor da IA local
-framework Kotlin da API mínima
 provedor e especificação da infraestrutura remota
 provedor S3-compatible do Object Storage
-canal de escalonamento para alertas críticos não confirmados
-observabilidade
 ```
 
----
-
-## 33. Decisões em aberto
+### Decisões arquiteturais ainda em aberto
 
 1. Contrato definitivo dos óculos.
 2. Estrutura definitiva de `AdministrationEvidence`.
-3. Estados e eventos finais da `AdministrationStateMachine`.
-4. Critérios de confiança/inconclusividade aceitos como evidência.
-5. Forma de resolução do paciente a partir da fala.
-6. Modelo final de prescrição e janela de administração.
-7. Estratégia de armazenamento e proteção dos embeddings faciais.
-8. Política para descarte de frames faciais.
-9. Política de conflitos e retificações após sincronização.
-10. SLA, timeout de acknowledgement e canal de escalonamento para alertas críticos.
-11. Escolha de Dependency Injection.
-12. Especificação do servidor, política de backup/PITR, HA, retenção, observabilidade e auditoria.
+3. Critérios de confiança/inconclusividade aceitos como evidência.
+4. Forma de resolução do paciente a partir da fala.
+5. Modelo final de prescrição e janela de administração.
+6. Estratégia de armazenamento e proteção dos embeddings faciais.
+7. Política para descarte de frames faciais.
+8. Política de conflitos e retificações após sincronização.
+9. SLA, timeout de acknowledgement e canal de escalonamento para alertas críticos.
+10. Escolha de Dependency Injection.
+11. Especificação do servidor, política de backup/PITR, HA, retenção, observabilidade e auditoria.
 
 ---
 
-## 34. Próximos passos de arquitetura
+## 33. Próximos passos de arquitetura
 
 ```mermaid
 flowchart TD
@@ -1713,7 +1707,7 @@ flowchart TD
 
 ---
 
-## 35. Resumo da decisão
+## 34. Resumo da decisão
 
 A arquitetura concentra o caminho crítico da administração no aplicativo Android e mantém a persistência central fora dele por uma fronteira estreita de sincronização.
 

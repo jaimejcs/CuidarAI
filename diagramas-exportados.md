@@ -166,13 +166,13 @@ Origem: seção 30, linha 1498.
 
 ## 23. Sequência dos próximos passos
 
-Origem: seção 34, linha 1658.
+Origem: seção 33 de `arquitetura-app-ia.md`.
 
 ![diagram](./diagramas-exportados-23.svg)
 
 ## 24. Resumo da arquitetura
 
-Origem: seção 35, linha 1687.
+Origem: seção 34 de `arquitetura-app-ia.md`.
 
 ![diagram](./diagramas-exportados-24.svg)
 
