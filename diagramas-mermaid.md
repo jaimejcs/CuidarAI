@@ -271,6 +271,7 @@ erDiagram
     RESPONSIBLE ||--o{ RESPONSIBLE_PATIENT : responde_por
     PATIENT ||--|{ RESPONSIBLE_PATIENT : possui_responsavel
     PATIENT ||--o{ PRESCRIPTION : possui
+    PRESCRIPTION o|--o| PRESCRIPTION : sucede
     PRESCRIPTION ||--|{ PRESCRIPTION_ITEM : contem
     MEDICATION ||--o{ PRESCRIPTION_ITEM : referencia
     PRESCRIPTION_ITEM ||--|{ MEDICATION_SCHEDULE : agenda
@@ -279,6 +280,8 @@ erDiagram
     ADMINISTRATION_SESSION ||--o{ ADMINISTRATION_ATTEMPT : registra
     ADMINISTRATION_SESSION ||--o| MEDICATION_ADMINISTRATION : confirma
     PATIENT ||--o{ MEDICATION_ADMINISTRATION : recebe
+    CAREGIVER ||--o{ MEDICATION_ADMINISTRATION : realiza
+    MEDICATION ||--o{ MEDICATION_ADMINISTRATION : administrado
     PRESCRIPTION_ITEM ||--o{ MEDICATION_ADMINISTRATION : fundamenta
     MEDICATION_SCHEDULE ||--o{ MEDICATION_ADMINISTRATION : atende
     ADMINISTRATION_SESSION ||--o{ DOMAIN_EVENT : produz
@@ -337,12 +340,13 @@ erDiagram
     PRESCRIPTION {
         uuid id PK
         uuid patient_id FK
+        uuid prescription_series_id
+        uuid supersedes_id FK,UK "nullable"
         datetime valid_from
         datetime valid_until
         string status
         int version
         datetime created_at
-        datetime updated_at
     }
     PRESCRIPTION_ITEM {
         uuid id PK
@@ -381,6 +385,8 @@ erDiagram
         uuid id PK
         uuid session_id FK,UK
         uuid patient_id FK
+        uuid medication_id FK
+        uuid caregiver_id FK
         uuid prescription_item_id FK
         uuid schedule_id FK
         decimal dosage_value
@@ -422,8 +428,8 @@ erDiagram
     MEDICATION_SCHEDULE ||--o{ SCHEDULED_DOSE : materializa
     ADMINISTRATION_SESSION ||--o{ EMERGENCY : reporta
     PATIENT o|--o{ EMERGENCY : relacionado_a
-    SCHEDULED_DOSE ||--o{ NOTIFICATION : gera
-    EMERGENCY ||--|{ NOTIFICATION : gera
+    SCHEDULED_DOSE o|--o{ NOTIFICATION : gera
+    EMERGENCY o|--o{ NOTIFICATION : gera
     NOTIFICATION ||--|{ NOTIFICATION_RECIPIENT : direciona
     ACCOUNT ||--o{ NOTIFICATION_RECIPIENT : recebe
     NOTIFICATION_RECIPIENT ||--o{ NOTIFICATION_DELIVERY : tenta

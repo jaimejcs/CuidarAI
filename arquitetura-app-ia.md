@@ -658,7 +658,8 @@ Regras do fluxo:
 4. cada operação utiliza UUID e chave de idempotência para impedir duplicidade;
 5. o servidor confirma a gravação e devolve versão/cursor de sincronização;
 6. leituras da aplicação continuam vindo do SQLite, atualizado após sincronizações push/pull;
-7. registros clínicos e de auditoria são append-only; correções produzem eventos de retificação, não sobrescrita silenciosa.
+7. administrações, tentativas, emergências, prescrições e registros de auditoria são append-only; dados cadastrais do paciente podem ser atualizados, enquanto correções clínicas produzem novas versões ou eventos de retificação, nunca sobrescrita silenciosa;
+8. uma prescrição persistida é imutável: qualquer alteração cria uma nova versão ligada à anterior, preservando integralmente a versão usada nas administrações já registradas.
 
 Estados mínimos da sincronização:
 
@@ -715,7 +716,7 @@ POST /v1/patients/{id}/responsibles
 DELETE /v1/patients/{id}/responsibles/{responsibleId}
 GET  /v1/patients/{id}/prescriptions
 POST /v1/patients/{id}/prescriptions
-PATCH /v1/prescriptions/{id}
+POST /v1/prescriptions/{id}/revisions
 GET  /v1/medications
 POST /v1/medications
 GET  /v1/patients/{id}/administrations
@@ -788,6 +789,7 @@ erDiagram
     RESPONSIBLE ||--o{ RESPONSIBLE_PATIENT : responde_por
     PATIENT ||--|{ RESPONSIBLE_PATIENT : possui_responsavel
     PATIENT ||--o{ PRESCRIPTION : possui
+    PRESCRIPTION o|--o| PRESCRIPTION : sucede
     PRESCRIPTION ||--|{ PRESCRIPTION_ITEM : contem
     MEDICATION ||--o{ PRESCRIPTION_ITEM : referencia
     PRESCRIPTION_ITEM ||--|{ MEDICATION_SCHEDULE : agenda
@@ -796,6 +798,8 @@ erDiagram
     ADMINISTRATION_SESSION ||--o{ ADMINISTRATION_ATTEMPT : registra
     ADMINISTRATION_SESSION ||--o| MEDICATION_ADMINISTRATION : confirma
     PATIENT ||--o{ MEDICATION_ADMINISTRATION : recebe
+    CAREGIVER ||--o{ MEDICATION_ADMINISTRATION : realiza
+    MEDICATION ||--o{ MEDICATION_ADMINISTRATION : administrado
     PRESCRIPTION_ITEM ||--o{ MEDICATION_ADMINISTRATION : fundamenta
     MEDICATION_SCHEDULE ||--o{ MEDICATION_ADMINISTRATION : atende
     ADMINISTRATION_SESSION ||--o{ DOMAIN_EVENT : produz
@@ -854,12 +858,13 @@ erDiagram
     PRESCRIPTION {
         uuid id PK
         uuid patient_id FK
+        uuid prescription_series_id
+        uuid supersedes_id FK,UK "nullable"
         datetime valid_from
         datetime valid_until
         string status
         int version
         datetime created_at
-        datetime updated_at
     }
     PRESCRIPTION_ITEM {
         uuid id PK
@@ -898,6 +903,8 @@ erDiagram
         uuid id PK
         uuid session_id FK,UK
         uuid patient_id FK
+        uuid medication_id FK
+        uuid caregiver_id FK
         uuid prescription_item_id FK
         uuid schedule_id FK
         decimal dosage_value
@@ -930,6 +937,42 @@ erDiagram
 
 `ADMINISTRATION_SESSION.patient_id` é anulável porque a sessão nasce com a wake word e o paciente só é resolvido posteriormente. Já `MEDICATION_ADMINISTRATION.patient_id` é obrigatório, pois nenhuma administração pode ser confirmada sem identificação.
 
+`MEDICATION_ADMINISTRATION` materializa diretamente os identificadores exigidos pelo domínio (`patient_id`, `medication_id` e `caregiver_id`). `prescription_item_id` e `schedule_id` permanecem como proveniência auditável da validação, mas não substituem as referências do agregado de domínio. Assim, uma consulta histórica não depende de inferir medicamento ou cuidador através de entidades intermediárias.
+
+Uma `PRESCRIPTION` persistida é imutável. `prescription_series_id` agrupa suas versões, `version` cresce dentro da série e `supersedes_id` aponta, no máximo uma vez, para a versão imediatamente anterior. O schema físico deve aplicar `UNIQUE (prescription_series_id, version)` e impedir `UPDATE` e `DELETE` por trigger; alterações são aceitas somente como `INSERT` de uma revisão pela operação `POST /v1/prescriptions/{id}/revisions`. Itens e horários pertencentes à prescrição recebem a mesma proteção. Mudanças de estado ou correções posteriores são registradas como nova versão ou evento de retificação.
+
+Exemplo da proteção no PostgreSQL:
+
+```sql
+CREATE UNIQUE INDEX uq_prescription_series_version
+    ON prescription (prescription_series_id, version);
+
+CREATE UNIQUE INDEX uq_prescription_supersedes
+    ON prescription (supersedes_id)
+    WHERE supersedes_id IS NOT NULL;
+
+CREATE FUNCTION reject_prescription_mutation()
+RETURNS trigger AS $$
+BEGIN
+    RAISE EXCEPTION 'prescriptions are immutable; create a revision instead';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER prescription_immutable
+BEFORE UPDATE OR DELETE ON prescription
+FOR EACH ROW EXECUTE FUNCTION reject_prescription_mutation();
+
+CREATE TRIGGER prescription_item_immutable
+BEFORE UPDATE OR DELETE ON prescription_item
+FOR EACH ROW EXECUTE FUNCTION reject_prescription_mutation();
+
+CREATE TRIGGER medication_schedule_immutable
+BEFORE UPDATE OR DELETE ON medication_schedule
+FOR EACH ROW EXECUTE FUNCTION reject_prescription_mutation();
+```
+
+No Room/SQLite, triggers equivalentes devem ser criados por migration. Metadados operacionais de sincronização ficam na outbox ou em tabela separada, para que marcar uma operação como sincronizada não exija alterar a prescrição imutável.
+
 `ADMINISTRATION_MEDIA` é obrigatória e possui relação um-para-um com `MEDICATION_ADMINISTRATION`. Ela não armazena o conteúdo binário; registra onde está a imagem, seu tipo, tamanho, checksum e prazo de retenção. A imagem fica em Object Storage compatível com S3 e é acessada somente por autorização temporária emitida pela API.
 
 #### Modelo de notificações
@@ -941,8 +984,8 @@ erDiagram
     MEDICATION_SCHEDULE ||--o{ SCHEDULED_DOSE : materializa
     ADMINISTRATION_SESSION ||--o{ EMERGENCY : reporta
     PATIENT o|--o{ EMERGENCY : relacionado_a
-    SCHEDULED_DOSE ||--o{ NOTIFICATION : gera
-    EMERGENCY ||--|{ NOTIFICATION : gera
+    SCHEDULED_DOSE o|--o{ NOTIFICATION : gera
+    EMERGENCY o|--o{ NOTIFICATION : gera
     NOTIFICATION ||--|{ NOTIFICATION_RECIPIENT : direciona
     ACCOUNT ||--o{ NOTIFICATION_RECIPIENT : recebe
     NOTIFICATION_RECIPIENT ||--o{ NOTIFICATION_DELIVERY : tenta
@@ -1011,6 +1054,8 @@ erDiagram
         datetime acknowledged_at
     }
 ```
+
+Cada `NOTIFICATION` possui exatamente uma origem: `scheduled_dose_id` para dose omitida ou `emergency_id` para urgência. As duas relações são opcionais isoladamente porque são alternativas, mas o banco deve exigir a exclusividade com `CHECK ((scheduled_dose_id IS NOT NULL) <> (emergency_id IS NOT NULL))`. Dessa forma, uma notificação nunca fica sem origem nem aponta simultaneamente para dose e emergência.
 
 ### 20.5 Modelo local e modelo remoto
 
