@@ -428,7 +428,7 @@ flowchart LR
     UC_ADMIN -. "«include»" .-> UC_CONS_PRESC
     UC_ADMIN -. "«include»" .-> UC_VOZ
     UC_ADMIN -. "«include»" .-> UC_REGISTRAR
-    UC_WAKE -. "«extend»" .-> UC_ADMIN
+    UC_ADMIN -. "«include»" .-> UC_WAKE
     UC_MONITORAR -. "«include»" .-> UC_CONS_PRESC
     UC_ALERTA_OMISSA -. "«extend»" .-> UC_MONITORAR
     UC_URG -. "«include»" .-> UC_ALERTA_URG
@@ -454,7 +454,7 @@ flowchart LR
 | Administrar medicamento | `«include»` | Consultar prescrição ativa | Medicamento, dose e janela de horário precisam ser comparados com a prescrição vigente. |
 | Administrar medicamento | `«include»` | Confirmar administração por voz | No fluxo desenhado, a confirmação falada é uma etapa obrigatória da administração. |
 | Administrar medicamento | `«include»` | Registrar administração | Uma administração concluída precisa gerar histórico e evidência de auditoria. |
-| Iniciar sessão por wake word | `«extend»` | Administrar medicamento | A wake word é uma forma opcional de iniciar o caso principal; a administração também pode começar por outro gatilho, como a interface do aplicativo. |
+| Administrar medicamento | `«include»` | Iniciar sessão por wake word | Toda administração começa obrigatoriamente nos óculos por meio da wake word. Não existe um fluxo equivalente iniciado pela interface do aplicativo. |
 | Monitorar janela de administração | `«include»` | Consultar prescrição ativa | O monitoramento depende dos horários definidos na prescrição. |
 | Receber alerta de dose omitida | `«extend»` | Monitorar janela de administração | O alerta só acontece sob a condição de a janela terminar sem uma administração confirmada. |
 | Reportar urgência | `«include»` | Receber alerta de urgência | Todo reporte aceito deve notificar o responsável; por isso, o envio/recebimento do alerta faz parte obrigatória do fluxo. |
@@ -465,5 +465,6 @@ flowchart LR
 - `«include»` representa comportamento obrigatório e reutilizado pelo caso de uso de origem.
 - `«extend»` representa comportamento condicional ou opcional apontando para o caso de uso base.
 - Os casos “Administrar medicamento”, “Consultar prescrição ativa”, “Monitorar janela de administração” e “Registrar administração” foram acrescentados para explicitar o objetivo principal e evitar dependências ambíguas entre etapas isoladas.
+- A interação de administração é orientada pelos óculos. A aplicação oferece apoio e acompanhamento, mas não inicia pela interface o fluxo de administração de medicamento.
 - “Alerta: dose omissa” e “Alerta de urgência” foram renomeados como ações observáveis pelo ator: “Receber alerta de dose omitida” e “Receber alerta de urgência”.
 - “Cadastrar residente” é pré-condição de “Cadastrar prescrição”. Não foi usado `«include»`, pois `include` significaria executar o cadastro do residente sempre que uma prescrição fosse cadastrada.
