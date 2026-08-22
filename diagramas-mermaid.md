@@ -375,39 +375,26 @@ flowchart TD
 
 Origem: rascunho de caso de uso fornecido em 22/08/2026.
 
+### 23.1 Visão do responsável
+
 ```mermaid
 flowchart LR
     RESPONSAVEL["👤 Responsável"]
-    CUIDADOR["👤 Cuidador"]
 
-    subgraph SISTEMA["Sistema CuidarAI"]
-        direction TB
-
-        subgraph GESTAO["Cadastro e acompanhamento"]
+    subgraph SISTEMA["Sistema CuidarAI — cadastro e acompanhamento"]
+        direction LR
+        subgraph PRINCIPAIS["Casos de uso do responsável"]
             direction TB
             UC_CAD_RES([Cadastrar residente])
             UC_CAD_PRESC([Cadastrar prescrição])
             UC_HIST([Consultar histórico])
-            UC_ALERTA_OMISSA([Receber alerta de dose omitida])
+            UC_ALERTA_OMISSA([Receber alerta de<br/>dose omitida])
             UC_ALERTA_URG([Receber alerta de urgência])
         end
-
-        subgraph CUIDADO["Administração e assistência"]
+        subgraph APOIO_RESP["Comportamentos de apoio"]
             direction TB
-            UC_LEMBRETE([Receber lembrete de horário])
-            UC_ADMIN([Administrar medicamento])
-            UC_WAKE([Iniciar sessão por wake word])
-            UC_IDENT([Identificar residente])
-            UC_VERIF([Verificar medicamento e dose])
-            UC_VOZ([Confirmar administração por voz])
-            UC_URG([Reportar urgência])
-        end
-
-        subgraph APOIO["Comportamentos de apoio"]
-            direction TB
+            UC_MONITORAR([Monitorar janela de<br/>administração])
             UC_CONS_PRESC([Consultar prescrição ativa])
-            UC_MONITORAR([Monitorar janela de administração])
-            UC_REGISTRAR([Registrar administração])
         end
     end
 
@@ -416,31 +403,64 @@ flowchart LR
     RESPONSAVEL --- UC_HIST
     RESPONSAVEL --- UC_ALERTA_OMISSA
     RESPONSAVEL --- UC_ALERTA_URG
+    UC_CAD_PRESC -. "«include»" .-> UC_CONS_PRESC
+    UC_ALERTA_OMISSA -. "«extend»" .-> UC_MONITORAR
+    UC_MONITORAR -. "«include»" .-> UC_CONS_PRESC
+
+    classDef actor fill:#f4f1ea,stroke:#666,color:#444,stroke-width:1px;
+    classDef management fill:#eeedff,stroke:#5651b5,color:#403ca0;
+    classDef support fill:#fff8df,stroke:#a77a16,color:#70520f;
+    class RESPONSAVEL actor;
+    class UC_CAD_RES,UC_CAD_PRESC,UC_HIST,UC_ALERTA_OMISSA,UC_ALERTA_URG management;
+    class UC_MONITORAR,UC_CONS_PRESC support;
+```
+
+### 23.2 Visão do cuidador
+
+```mermaid
+flowchart LR
+    CUIDADOR["👤 Cuidador"]
+    RESPONSAVEL["👤 Responsável"]
+
+    subgraph SISTEMA["Sistema CuidarAI — administração e assistência"]
+        direction LR
+        subgraph PRINCIPAIS["Casos de uso principais"]
+            direction TB
+            UC_LEMBRETE([Receber lembrete de horário])
+            UC_ADMIN([Administrar medicamento])
+            UC_URG([Reportar urgência])
+        end
+        subgraph ETAPAS["Etapas obrigatórias"]
+            direction TB
+            UC_WAKE([Iniciar sessão por<br/>wake word])
+            UC_IDENT([Identificar residente])
+            UC_VERIF([Verificar medicamento<br/>e dose])
+            UC_VOZ([Confirmar administração<br/>por voz])
+            UC_REGISTRAR([Registrar administração])
+            UC_CONS_PRESC([Consultar prescrição ativa])
+            UC_ALERTA_URG([Receber alerta de urgência])
+        end
+    end
 
     CUIDADOR --- UC_LEMBRETE
     CUIDADOR --- UC_ADMIN
     CUIDADOR --- UC_URG
-
-    UC_CAD_PRESC -. "«include»" .-> UC_CONS_PRESC
+    RESPONSAVEL --- UC_ALERTA_URG
     UC_LEMBRETE -. "«include»" .-> UC_CONS_PRESC
+    UC_ADMIN -. "«include»" .-> UC_WAKE
     UC_ADMIN -. "«include»" .-> UC_IDENT
     UC_ADMIN -. "«include»" .-> UC_VERIF
     UC_ADMIN -. "«include»" .-> UC_CONS_PRESC
     UC_ADMIN -. "«include»" .-> UC_VOZ
     UC_ADMIN -. "«include»" .-> UC_REGISTRAR
-    UC_ADMIN -. "«include»" .-> UC_WAKE
-    UC_MONITORAR -. "«include»" .-> UC_CONS_PRESC
-    UC_ALERTA_OMISSA -. "«extend»" .-> UC_MONITORAR
     UC_URG -. "«include»" .-> UC_ALERTA_URG
 
     classDef actor fill:#f4f1ea,stroke:#666,color:#444,stroke-width:1px;
-    classDef management fill:#eeedff,stroke:#5651b5,color:#403ca0;
     classDef care fill:#e1f5ef,stroke:#15806d,color:#126a5b;
     classDef support fill:#fff8df,stroke:#a77a16,color:#70520f;
-    class RESPONSAVEL,CUIDADOR actor;
-    class UC_CAD_RES,UC_CAD_PRESC,UC_HIST,UC_ALERTA_OMISSA,UC_ALERTA_URG management;
-    class UC_LEMBRETE,UC_ADMIN,UC_WAKE,UC_IDENT,UC_VERIF,UC_VOZ,UC_URG care;
-    class UC_CONS_PRESC,UC_MONITORAR,UC_REGISTRAR support;
+    class CUIDADOR,RESPONSAVEL actor;
+    class UC_LEMBRETE,UC_ADMIN,UC_URG care;
+    class UC_WAKE,UC_IDENT,UC_VERIF,UC_VOZ,UC_REGISTRAR,UC_CONS_PRESC,UC_ALERTA_URG support;
 ```
 
 ### Justificativa das relações
