@@ -1,4 +1,4 @@
-# Compilado de diagramas — CuidarAI
+# Compilado de diagramas — CuidarIA
 
 Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.md`](./arquitetura-app-ia.md). Cada diagrama permanece em um bloco independente para facilitar sua revisão e futura exportação para SVG.
 

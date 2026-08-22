@@ -1,4 +1,4 @@
-# Compilado de diagramas — CuidarAI
+# Compilado de diagramas — CuidarIA
 
 Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.md`](./arquitetura-app-ia.md). Cada diagrama permanece em um bloco independente para facilitar sua revisão e futura exportação para SVG.
 
@@ -38,7 +38,7 @@ Origem: seção 2, linha 31.
 
 ```mermaid
 flowchart TD
-    A[Cuidador] -->|"Hey CuidarAI"| B[Ativação da sessão]
+    A[Cuidador] -->|"Hey CuidarIA"| B[Ativação da sessão]
     B --> C[Captura de áudio]
     B --> D[Captura de vídeo]
     C --> E[IA / Percepção]
@@ -78,7 +78,7 @@ Origem: seção 6, linha 122.
 
 ```mermaid
 flowchart TD
-    C[Cuidador] -->|"Hey CuidarAI"| W[WakeWordDetector]
+    C[Cuidador] -->|"Hey CuidarIA"| W[WakeWordDetector]
     W --> S[AdministrationSessionCoordinator]
 
     S --> CD[CaptureDevice<br/>áudio + vídeo]
@@ -111,7 +111,7 @@ Origem: seção 8, linha 200.
 ```mermaid
 flowchart LR
     A[Áudio] --> B{Wake word detectada?}
-    B -->|"Hey CuidarAI"| C[WakeWordDetected]
+    B -->|"Hey CuidarIA"| C[WakeWordDetected]
 ```
 
 ## 5. Implementações do `AiGateway`
@@ -566,7 +566,7 @@ Origem: seção 27, linha 1276.
 ```mermaid
 flowchart LR
     subgraph LOCAL["Dispositivo Android"]
-        G[Óculos] --> APP[Aplicativo CuidarAI]
+        G[Óculos] --> APP[Aplicativo CuidarIA]
         APP --> AI[IA local]
         APP --> DOM[Domínio / FSM]
         DOM --> ROOM[Room]
@@ -610,7 +610,7 @@ Origem: seção 30, linha 1498.
 
 ```mermaid
 flowchart TD
-    A["Simular 'Hey CuidarAI'"] --> B[Iniciar sessão]
+    A["Simular 'Hey CuidarIA'"] --> B[Iniciar sessão]
     B --> C[Injetar áudio e frames gravados]
     C --> D[Fake AI produz observações]
     D --> E[Montar AdministrationEvidence]
@@ -674,7 +674,7 @@ Origem: rascunho de caso de uso fornecido em 22/08/2026.
 flowchart LR
     RESPONSAVEL["👤 Responsável"]
 
-    subgraph SISTEMA["Sistema CuidarAI — cadastro e acompanhamento"]
+    subgraph SISTEMA["Sistema CuidarIA — cadastro e acompanhamento"]
         direction LR
         subgraph PRINCIPAIS["Casos de uso do responsável"]
             direction TB
@@ -715,7 +715,7 @@ flowchart LR
     CUIDADOR["👤 Cuidador"]
     RESPONSAVEL["👤 Responsável"]
 
-    subgraph SISTEMA["Sistema CuidarAI — administração e assistência"]
+    subgraph SISTEMA["Sistema CuidarIA — administração e assistência"]
         direction LR
         subgraph PRINCIPAIS["Casos de uso principais"]
             direction TB

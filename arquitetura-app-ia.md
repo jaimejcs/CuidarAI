@@ -1,4 +1,4 @@
-# Arquitetura da Aplicação CuidarAI
+# Arquitetura da Aplicação CuidarIA
 
 **Status:** Arquitetura de produção definida, sujeita a refinamentos de implementação
 
@@ -14,7 +14,7 @@
 
 ## 1. Objetivo do documento
 
-Este documento descreve a arquitetura inicial da aplicação CuidarAI responsável por apoiar o cuidador durante a administração de medicamentos utilizando captura de áudio e vídeo pelos óculos, processamento por IA, validação determinística das informações e persistência do histórico de doses ministradas.
+Este documento descreve a arquitetura inicial da aplicação CuidarIA responsável por apoiar o cuidador durante a administração de medicamentos utilizando captura de áudio e vídeo pelos óculos, processamento por IA, validação determinística das informações e persistência do histórico de doses ministradas.
 
 A solução de IA será tratada pela aplicação como uma **caixa preta**, conhecida por contratos de entrada e saída. A arquitetura não deve depender de como os modelos são implementados nem de onde são executados.
 
@@ -30,7 +30,7 @@ O fluxo funcional principal é uma **sessão de administração de medicamento**
 
 ```mermaid
 flowchart TD
-    A[Cuidador] -->|"Hey CuidarAI"| B[Ativação da sessão]
+    A[Cuidador] -->|"Hey CuidarIA"| B[Ativação da sessão]
     B --> C[Captura de áudio]
     B --> D[Captura de vídeo]
     C --> E[IA / Percepção]
@@ -121,7 +121,7 @@ O componente central de orquestração da aplicação será uma sessão de admin
 
 ```mermaid
 flowchart TD
-    C[Cuidador] -->|"Hey CuidarAI"| W[WakeWordDetector]
+    C[Cuidador] -->|"Hey CuidarIA"| W[WakeWordDetector]
     W --> S[AdministrationSessionCoordinator]
 
     S --> CD[CaptureDevice<br/>áudio + vídeo]
@@ -185,7 +185,7 @@ Essa correlação deve ser explícita para impedir que observações de sessões
 
 ## 8. Wake word e início da sessão
 
-O comando **"Hey CuidarAI"** inicia o fluxo.
+O comando **"Hey CuidarIA"** inicia o fluxo.
 
 Será previsto um contrato lógico como:
 
@@ -200,7 +200,7 @@ O detector possui responsabilidade restrita:
 ```mermaid
 flowchart LR
     A[Áudio] --> B{Wake word detectada?}
-    B -->|"Hey CuidarAI"| C[WakeWordDetected]
+    B -->|"Hey CuidarIA"| C[WakeWordDetected]
 ```
 
 Ao receber o evento, a aplicação inicia uma nova `AdministrationSession` e habilita a captura necessária de áudio e vídeo.
@@ -1321,7 +1321,7 @@ A topologia de produção concentra no aplicativo Android tudo o que participa d
 ```mermaid
 flowchart LR
     subgraph LOCAL["Dispositivo Android"]
-        G[Óculos] --> APP[Aplicativo CuidarAI]
+        G[Óculos] --> APP[Aplicativo CuidarIA]
         APP --> AI[IA local]
         APP --> DOM[Domínio / FSM]
         DOM --> ROOM[Room]
@@ -1542,7 +1542,7 @@ Fluxo inicial:
 
 ```mermaid
 flowchart TD
-    A["Simular 'Hey CuidarAI'"] --> B[Iniciar sessão]
+    A["Simular 'Hey CuidarIA'"] --> B[Iniciar sessão]
     B --> C[Injetar áudio e frames gravados]
     C --> D[Fake AI produz observações]
     D --> E[Montar AdministrationEvidence]
