@@ -1674,10 +1674,11 @@ provedor S3-compatible do Object Storage
 5. Modelo final de prescrição e janela de administração.
 6. Estratégia de armazenamento e proteção dos embeddings faciais.
 7. Política para descarte de frames faciais.
-8. Política de conflitos e retificações após sincronização.
-9. SLA, timeout de acknowledgement e canal de escalonamento para alertas críticos.
-10. Escolha de Dependency Injection.
-11. Especificação do servidor, política de backup/PITR, HA, retenção, observabilidade e auditoria.
+8. Política de retenção da imagem do medicamento.
+9. Política de conflitos e retificações após sincronização.
+10. SLA, timeout de acknowledgement e canal de escalonamento para alertas críticos.
+11. Escolha de Dependency Injection.
+12. Especificação do servidor, política de backup/PITR, HA, retenção, observabilidade e auditoria.
 
 ---
 
