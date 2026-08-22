@@ -15,24 +15,26 @@ Este documento reúne os diagramas Mermaid encontrados em [`arquitetura-app-ia.m
 9. Divergência de medicamento
 10. Máquina de estados da administração
 11. Coordenação da sessão
-12. Tratamento de dados faciais
-13. Destinos dos eventos de domínio
-14. Fluxo de ações da apresentação
-15. Fluxo de estado da apresentação
-16. Ports & Adapters
-17. Topologia de execução — alternativa A
-18. Topologia de execução — alternativa B
-19. Topologia de execução — alternativa C
-20. Estratégia inicial de prototipação
-21. Sequência dos próximos passos
-22. Resumo da arquitetura
-23. Casos de uso do sistema
+12. Fluxo local-first e sincronização
+13. Entrega de notificações
+14. Modelo lógico relacional
+15. Modelo lógico de notificações
+16. Tratamento de dados faciais
+17. Destinos dos eventos de domínio
+18. Fluxo de ações da apresentação
+19. Fluxo de estado da apresentação
+20. Ports & Adapters
+21. Topologia de execução definida
+22. Estratégia inicial de prototipação
+23. Sequência dos próximos passos
+24. Resumo da arquitetura
+25. Casos de uso do sistema
 
 ---
 
 ## 1. Fluxo principal de uso
 
-Origem: seção 2, linha 27.
+Origem: seção 2, linha 31.
 
 ```mermaid
 flowchart TD
@@ -56,14 +58,14 @@ flowchart TD
 
 ## 2. Camadas da aplicação
 
-Origem: seção 5, linha 109.
+Origem: seção 5, linha 102.
 
 ```mermaid
 flowchart TD
     P["Presentation<br/>Jetpack Compose · ViewModel · UiState · Navigation"]
     A["Application<br/>Use Cases · Session Coordinator · Orchestration"]
     D["Domain<br/>Entities · Validation · FSM · Policies · Events"]
-    I["Infrastructure<br/>Glasses · IA · Storage · Backend · Android APIs"]
+    I["Infrastructure<br/>Glasses · IA · Storage · Remote Services · Android APIs"]
 
     P --> A
     A --> D
@@ -72,7 +74,7 @@ flowchart TD
 
 ## 3. Arquitetura funcional da sessão
 
-Origem: seção 6, linha 129.
+Origem: seção 6, linha 122.
 
 ```mermaid
 flowchart TD
@@ -99,12 +101,12 @@ flowchart TD
     DG --> EV
     UN --> EV
     EV --> AR[AdministrationRepository]
-    AR --> HB[Histórico / Backend]
+    AR --> HB[Histórico / Persistência remota]
 ```
 
 ## 4. Detecção da wake word
 
-Origem: seção 8, linha 205.
+Origem: seção 8, linha 200.
 
 ```mermaid
 flowchart LR
@@ -114,20 +116,18 @@ flowchart LR
 
 ## 5. Implementações do `AiGateway`
 
-Origem: seção 10, linha 273.
+Origem: seção 10, linha 266.
 
 ```mermaid
 flowchart LR
     G[AiGateway] --> L[LocalAiAdapter]
-    G --> C[CloudAiAdapter]
-    G --> S[SeparateAppAiAdapter]
-    G --> H[HybridAiAdapter]
+    G --> S[LocalSdkAiAdapter]
     G --> F[FakeAiAdapter]
 ```
 
 ## 6. Limite de responsabilidade da IA
 
-Origem: seção 11, linha 316.
+Origem: seção 11, linha 305.
 
 ```mermaid
 flowchart TD
@@ -138,7 +138,7 @@ flowchart TD
 
 ## 7. Validação da administração
 
-Origem: seção 14, linha 386.
+Origem: seção 14, linha 373.
 
 ```mermaid
 flowchart TD
@@ -152,7 +152,7 @@ flowchart TD
 
 ## 8. Divergência de identidade do paciente
 
-Origem: seção 15, linha 416.
+Origem: seção 15, linha 403.
 
 ```mermaid
 flowchart TD
@@ -165,7 +165,7 @@ flowchart TD
 
 ## 9. Divergência de medicamento
 
-Origem: seção 15, linha 427.
+Origem: seção 15, linha 414.
 
 ```mermaid
 flowchart TD
@@ -176,7 +176,7 @@ flowchart TD
 
 ## 10. Máquina de estados da administração
 
-Origem: seção 16, linha 444.
+Origem: seção 16, linha 431.
 
 ```mermaid
 stateDiagram-v2
@@ -205,7 +205,7 @@ stateDiagram-v2
 
 ## 11. Coordenação da sessão
 
-Origem: seção 17, linha 499.
+Origem: seção 17, linha 486.
 
 ```mermaid
 flowchart TD
@@ -220,9 +220,282 @@ flowchart TD
     S --> VM[ViewModel / UiState]
 ```
 
-## 12. Tratamento de dados faciais
+## 12. Fluxo local-first e sincronização
 
-Origem: seção 21, linha 660.
+Origem: seção 20.1, linha 638.
+
+```mermaid
+flowchart LR
+    G[Óculos] --> APP[Aplicativo Android]
+    APP --> DOM[Domínio e validação]
+    DOM --> TX[Transação Room]
+    TX --> SQL[(SQLite)]
+    TX --> OUT[Outbox PENDING]
+    OUT --> WM[WorkManager]
+    WM -->|HTTPS + idempotency key| API[API mínima de persistência]
+    API --> PG[(PostgreSQL dedicado)]
+    API --> OBJ[(Object Storage externo)]
+    API -->|confirmação / cursor| WM
+    WM -->|marca SYNCED| SQL
+```
+
+## 13. Entrega de notificações
+
+Origem: seção 20.3, linha 737.
+
+```mermaid
+flowchart LR
+    EV[UrgencyReported / DoseOmitted] --> NTX[Transação PostgreSQL]
+    NTX --> N[Notification]
+    NTX --> NO[Notification Outbox]
+    NO --> DISP[NotificationDispatcher]
+    DISP --> GW[NotificationGateway]
+    GW --> FCM[Firebase Cloud Messaging]
+    FCM --> APP[App do responsável]
+    APP --> ACK[Confirmação explícita]
+    ACK --> API[API HTTPS]
+    API --> DEL[NotificationDelivery ACKNOWLEDGED]
+    DISP --> RETRY[Retry / escalonamento]
+```
+
+## 14. Modelo lógico relacional
+
+Origem: seção 20.4, linha 782.
+
+```mermaid
+erDiagram
+    ACCOUNT ||--o| CAREGIVER : possui_perfil
+    ACCOUNT ||--o| RESPONSIBLE : possui_perfil
+    CAREGIVER ||--o{ CAREGIVER_PATIENT : cuida
+    PATIENT ||--o{ CAREGIVER_PATIENT : recebe_cuidado
+    RESPONSIBLE ||--o{ RESPONSIBLE_PATIENT : responde_por
+    PATIENT ||--|{ RESPONSIBLE_PATIENT : possui_responsavel
+    PATIENT ||--o{ PRESCRIPTION : possui
+    PRESCRIPTION ||--|{ PRESCRIPTION_ITEM : contem
+    MEDICATION ||--o{ PRESCRIPTION_ITEM : referencia
+    PRESCRIPTION_ITEM ||--|{ MEDICATION_SCHEDULE : agenda
+    PATIENT o|--o{ ADMINISTRATION_SESSION : identificado_em
+    CAREGIVER ||--o{ ADMINISTRATION_SESSION : inicia
+    ADMINISTRATION_SESSION ||--o{ ADMINISTRATION_ATTEMPT : registra
+    ADMINISTRATION_SESSION ||--o| MEDICATION_ADMINISTRATION : confirma
+    PATIENT ||--o{ MEDICATION_ADMINISTRATION : recebe
+    PRESCRIPTION_ITEM ||--o{ MEDICATION_ADMINISTRATION : fundamenta
+    MEDICATION_SCHEDULE ||--o{ MEDICATION_ADMINISTRATION : atende
+    ADMINISTRATION_SESSION ||--o{ DOMAIN_EVENT : produz
+    MEDICATION_ADMINISTRATION ||--|| ADMINISTRATION_MEDIA : exige
+
+    ACCOUNT {
+        uuid id PK
+        string external_auth_id UK
+        string email UK
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    CAREGIVER {
+        uuid id PK
+        uuid account_id FK,UK
+        string name
+        datetime created_at
+        datetime updated_at
+    }
+    RESPONSIBLE {
+        uuid id PK
+        uuid account_id FK,UK
+        string name
+        string phone
+        datetime created_at
+        datetime updated_at
+    }
+    PATIENT {
+        uuid id PK
+        string name
+        date birth_date
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    CAREGIVER_PATIENT {
+        uuid caregiver_id PK,FK
+        uuid patient_id PK,FK
+        string role
+        datetime granted_at
+    }
+    RESPONSIBLE_PATIENT {
+        uuid responsible_id PK,FK
+        uuid patient_id PK,FK
+        boolean primary_contact
+        datetime granted_at
+    }
+    MEDICATION {
+        uuid id PK
+        string name
+        string normalized_name
+        string presentation
+        datetime created_at
+    }
+    PRESCRIPTION {
+        uuid id PK
+        uuid patient_id FK
+        datetime valid_from
+        datetime valid_until
+        string status
+        int version
+        datetime created_at
+        datetime updated_at
+    }
+    PRESCRIPTION_ITEM {
+        uuid id PK
+        uuid prescription_id FK
+        uuid medication_id FK
+        decimal dosage_value
+        string dosage_unit
+        string instructions
+    }
+    MEDICATION_SCHEDULE {
+        uuid id PK
+        uuid prescription_item_id FK
+        time scheduled_time
+        int tolerance_before_min
+        int tolerance_after_min
+        string timezone
+    }
+    ADMINISTRATION_SESSION {
+        uuid id PK
+        uuid patient_id FK "nullable ate identificacao"
+        uuid caregiver_id FK
+        datetime started_at
+        datetime ended_at
+        string status
+        string trigger
+        string rules_version
+    }
+    ADMINISTRATION_ATTEMPT {
+        uuid id PK
+        uuid session_id FK
+        string outcome
+        json evidence_summary
+        datetime occurred_at
+    }
+    MEDICATION_ADMINISTRATION {
+        uuid id PK
+        uuid session_id FK,UK
+        uuid patient_id FK
+        uuid prescription_item_id FK
+        uuid schedule_id FK
+        decimal dosage_value
+        string dosage_unit
+        datetime administered_at
+        string verification_result
+        json verification_summary
+        datetime created_at
+    }
+    DOMAIN_EVENT {
+        uuid id PK
+        uuid session_id FK
+        string event_type
+        json payload
+        datetime occurred_at
+        int schema_version
+    }
+    ADMINISTRATION_MEDIA {
+        uuid id PK
+        uuid administration_id FK,UK
+        string bucket_name
+        string object_key
+        string content_type
+        bigint size_bytes
+        string checksum_sha256
+        datetime retention_until
+        datetime created_at
+    }
+```
+
+## 15. Modelo lógico de notificações
+
+Origem: seção 20.4, linha 937.
+
+```mermaid
+erDiagram
+    ACCOUNT ||--o{ DEVICE_REGISTRATION : registra
+    PATIENT ||--o{ SCHEDULED_DOSE : possui
+    MEDICATION_SCHEDULE ||--o{ SCHEDULED_DOSE : materializa
+    ADMINISTRATION_SESSION ||--o{ EMERGENCY : reporta
+    PATIENT o|--o{ EMERGENCY : relacionado_a
+    SCHEDULED_DOSE ||--o{ NOTIFICATION : gera
+    EMERGENCY ||--|{ NOTIFICATION : gera
+    NOTIFICATION ||--|{ NOTIFICATION_RECIPIENT : direciona
+    ACCOUNT ||--o{ NOTIFICATION_RECIPIENT : recebe
+    NOTIFICATION_RECIPIENT ||--o{ NOTIFICATION_DELIVERY : tenta
+    DEVICE_REGISTRATION ||--o{ NOTIFICATION_DELIVERY : destino
+    NOTIFICATION_RECIPIENT ||--o| NOTIFICATION_ACKNOWLEDGEMENT : confirma
+
+    DEVICE_REGISTRATION {
+        uuid id PK
+        uuid account_id FK
+        string provider
+        string token_encrypted
+        string platform
+        string status
+        datetime last_seen_at
+        datetime created_at
+    }
+    SCHEDULED_DOSE {
+        uuid id PK
+        uuid patient_id FK
+        uuid schedule_id FK
+        datetime expected_at
+        datetime window_start
+        datetime window_end
+        string status
+    }
+    EMERGENCY {
+        uuid id PK
+        uuid session_id FK
+        uuid patient_id FK "nullable"
+        uuid reported_by_account_id FK
+        string severity
+        datetime reported_at
+    }
+    NOTIFICATION {
+        uuid id PK
+        uuid scheduled_dose_id FK "nullable"
+        uuid emergency_id FK "nullable"
+        string type
+        string priority
+        string status
+        datetime created_at
+    }
+    NOTIFICATION_RECIPIENT {
+        uuid id PK
+        uuid notification_id FK
+        uuid account_id FK
+        string status
+        datetime acknowledged_at
+    }
+    NOTIFICATION_DELIVERY {
+        uuid id PK
+        uuid recipient_id FK
+        uuid device_registration_id FK
+        string provider
+        string provider_message_id
+        string status
+        int attempt_number
+        datetime attempted_at
+        datetime delivered_at
+        string failure_code
+    }
+    NOTIFICATION_ACKNOWLEDGEMENT {
+        uuid id PK
+        uuid recipient_id FK,UK
+        uuid account_id FK
+        datetime acknowledged_at
+    }
+```
+
+## 16. Tratamento de dados faciais
+
+Origem: seção 21, linha 1087.
 
 ```mermaid
 flowchart TD
@@ -232,20 +505,20 @@ flowchart TD
     V --> D[Descarte do frame após processamento]
 ```
 
-## 13. Destinos dos eventos de domínio
+## 17. Destinos dos eventos de domínio
 
-Origem: seção 22, linha 697.
+Origem: seção 22, linha 1124.
 
 ```mermaid
 flowchart LR
     E[Domain Event] --> A[Audit Log]
     E --> U[UI Update]
-    E --> S[Sync / Backend]
+    E --> S[Sync / Serviço remoto]
 ```
 
-## 14. Fluxo de ações da apresentação
+## 18. Fluxo de ações da apresentação
 
-Origem: seção 23, linha 712.
+Origem: seção 23, linha 1139.
 
 ```mermaid
 flowchart TD
@@ -255,9 +528,9 @@ flowchart TD
     A --> D[Application / Domain]
 ```
 
-## 15. Fluxo de estado da apresentação
+## 19. Fluxo de estado da apresentação
 
-Origem: seção 23, linha 722.
+Origem: seção 23, linha 1149.
 
 ```mermaid
 flowchart TD
@@ -266,9 +539,9 @@ flowchart TD
     S --> C[Compose]
 ```
 
-## 16. Ports & Adapters
+## 20. Ports & Adapters
 
-Origem: seção 26, linha 831.
+Origem: seção 26, linha 1258.
 
 ```mermaid
 flowchart TD
@@ -276,49 +549,58 @@ flowchart TD
     I[Infrastructure] -->|implementa| P
     I --> M[Meta SDK]
     I --> L[IA local]
-    I --> C[IA cloud]
-    I --> B[Banco]
-    I --> BE[Backend]
+    I --> R[Room / SQLite]
+    I --> API[API de persistência]
 ```
 
-## 17. Topologia de execução — alternativa A
+## 21. Topologia de execução definida
 
-Origem: seção 27, linha 852.
+Origem: seção 27, linha 1276.
 
 ```mermaid
 flowchart LR
-    G[Óculos] --> A[Android App]
-    A --> I[IA local]
-    A --> B[Backend]
+    subgraph LOCAL["Dispositivo Android"]
+        G[Óculos] --> APP[Aplicativo CuidarAI]
+        APP --> AI[IA local]
+        APP --> DOM[Domínio / FSM]
+        DOM --> ROOM[Room]
+        ROOM --> SQLITE[(SQLite)]
+        SQLITE --> SYNC[Outbox + WorkManager]
+    end
+
+    subgraph SERVER["Infraestrutura remota"]
+        WAF[WAF]
+        RP[Reverse proxy TLS]
+        API[API mínima HTTPS]
+        ND[NotificationDispatcher]
+        PG[(PostgreSQL autogerenciado)]
+        WAF --> RP --> API
+        API --> PG
+        API --> ND
+    end
+
+    subgraph OFFSITE["Armazenamento externo"]
+        OBJ[(Object Storage S3)]
+        BKP[(Backups + WAL)]
+    end
+
+    subgraph PUSH["Push externo"]
+        FCM[Firebase Cloud Messaging]
+        RESP[App do responsável]
+        FCM --> RESP
+    end
+
+    API --> OBJ
+    PG -->|pgBackRest / WAL-G| BKP
+    ND --> FCM
+
+    SYNC -->|HTTPS| WAF
+    API -->|confirmações e mudanças| SYNC
 ```
 
-## 18. Topologia de execução — alternativa B
+## 22. Estratégia inicial de prototipação
 
-Origem: seção 27, linha 861.
-
-```mermaid
-flowchart LR
-    G[Óculos] --> A[Android App]
-    A --> L[APK / serviço local de IA]
-    A --> C[Cloud AI]
-    A --> B[Backend]
-```
-
-## 19. Topologia de execução — alternativa C
-
-Origem: seção 27, linha 871.
-
-```mermaid
-flowchart LR
-    A[Android App] --> S[Speech local]
-    A --> F[Face local]
-    A --> M[Medication AI cloud]
-    A --> B[Backend de dados]
-```
-
-## 20. Estratégia inicial de prototipação
-
-Origem: seção 30, linha 1004.
+Origem: seção 30, linha 1498.
 
 ```mermaid
 flowchart TD
@@ -334,9 +616,9 @@ flowchart TD
     J --> K[Histórico na UI]
 ```
 
-## 21. Sequência dos próximos passos
+## 23. Sequência dos próximos passos
 
-Origem: seção 34, linha 1142.
+Origem: seção 34, linha 1658.
 
 ```mermaid
 flowchart TD
@@ -351,15 +633,19 @@ flowchart TD
     S9[9. Implementar AdministrationSessionCoordinator]
     S10[10. Criar ViewModel + UiState]
     S11[11. Criar tela Compose do fluxo]
-    S12[12. Criar histórico local fake]
-    S13[13. Substituir adapters por implementações reais]
+    S12[12. Implementar Room + SQLite]
+    S13[13. Implementar Outbox + WorkManager]
+    S14[14. Implementar API mínima + PostgreSQL]
+    S15[15. Validar sincronização, idempotência e conflitos]
+    S16[16. Implementar notificações FCM + acknowledgement]
+    S17[17. Substituir adapters de IA/dispositivo por implementações reais]
 
-    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13 --> S14 --> S15 --> S16 --> S17
 ```
 
-## 22. Resumo da arquitetura
+## 24. Resumo da arquitetura
 
-Origem: seção 35, linha 1167.
+Origem: seção 35, linha 1687.
 
 ```mermaid
 flowchart TD
@@ -367,15 +653,16 @@ flowchart TD
     A --> D[Domain]
     DA[Device Adapter] --> C[Ports / Contracts]
     AI[AI Adapter] --> C
-    DT[Data Adapter] --> C
+    RM[Room Adapter] --> C
+    SY[Sync Adapter] --> C
     C --> D
 ```
 
-## 23. Casos de uso do sistema
+## 25. Casos de uso do sistema
 
 Origem: rascunho de caso de uso fornecido em 22/08/2026.
 
-### 23.1 Visão do responsável
+### 25.1 Visão do responsável
 
 ```mermaid
 flowchart LR
@@ -385,7 +672,7 @@ flowchart LR
         direction LR
         subgraph PRINCIPAIS["Casos de uso do responsável"]
             direction TB
-            UC_CAD_RES([Cadastrar residente])
+            UC_CAD_RES([Cadastrar paciente])
             UC_CAD_PRESC([Cadastrar prescrição])
             UC_HIST([Consultar histórico])
             UC_ALERTA_OMISSA([Receber alerta de<br/>dose omitida])
@@ -415,7 +702,7 @@ flowchart LR
     class UC_MONITORAR,UC_CONS_PRESC support;
 ```
 
-### 23.2 Visão do cuidador
+### 25.2 Visão do cuidador
 
 ```mermaid
 flowchart LR
@@ -433,7 +720,7 @@ flowchart LR
         subgraph ETAPAS["Etapas obrigatórias"]
             direction TB
             UC_WAKE([Iniciar sessão por<br/>wake word])
-            UC_IDENT([Identificar residente])
+            UC_IDENT([Identificar paciente])
             UC_VERIF([Verificar medicamento<br/>e dose])
             UC_VOZ([Confirmar administração<br/>por voz])
             UC_REGISTRAR([Registrar administração])
@@ -467,9 +754,9 @@ flowchart LR
 
 | Origem | Relação | Destino | Motivo |
 |---|---|---|---|
-| Cadastrar prescrição | `«include»` | Consultar prescrição ativa | O sistema precisa consultar o estado atual para criar ou alterar uma prescrição sem gerar sobreposição indevida. O residente já cadastrado é tratado como pré-condição, não como `include`, pois não é recadastrado em toda operação. |
+| Cadastrar prescrição | `«include»` | Consultar prescrição ativa | O sistema precisa consultar o estado atual para criar ou alterar uma prescrição sem gerar sobreposição indevida. O paciente já cadastrado é tratado como pré-condição, não como `include`, pois não é recadastrado em toda operação. |
 | Receber lembrete de horário | `«include»` | Consultar prescrição ativa | O horário e a dose do lembrete vêm necessariamente de uma prescrição vigente. |
-| Administrar medicamento | `«include»` | Identificar residente | A identificação é obrigatória para vincular a dose à pessoa correta. |
+| Administrar medicamento | `«include»` | Identificar paciente | A identificação é obrigatória para vincular a dose à pessoa correta. |
 | Administrar medicamento | `«include»` | Verificar medicamento e dose | A conferência é obrigatória antes da confirmação da administração. |
 | Administrar medicamento | `«include»` | Consultar prescrição ativa | Medicamento, dose e janela de horário precisam ser comparados com a prescrição vigente. |
 | Administrar medicamento | `«include»` | Confirmar administração por voz | No fluxo desenhado, a confirmação falada é uma etapa obrigatória da administração. |
@@ -487,4 +774,4 @@ flowchart LR
 - Os casos “Administrar medicamento”, “Consultar prescrição ativa”, “Monitorar janela de administração” e “Registrar administração” foram acrescentados para explicitar o objetivo principal e evitar dependências ambíguas entre etapas isoladas.
 - A interação de administração é orientada pelos óculos. A aplicação oferece apoio e acompanhamento, mas não inicia pela interface o fluxo de administração de medicamento.
 - “Alerta: dose omissa” e “Alerta de urgência” foram renomeados como ações observáveis pelo ator: “Receber alerta de dose omitida” e “Receber alerta de urgência”.
-- “Cadastrar residente” é pré-condição de “Cadastrar prescrição”. Não foi usado `«include»`, pois `include` significaria executar o cadastro do residente sempre que uma prescrição fosse cadastrada.
+- “Cadastrar paciente” é pré-condição de “Cadastrar prescrição”. Não foi usado `«include»`, pois `include` significaria executar o cadastro do paciente sempre que uma prescrição fosse cadastrada.

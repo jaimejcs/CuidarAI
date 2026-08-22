@@ -1,9 +1,13 @@
 # Arquitetura da Aplicação CuidarAI
 
-**Status:** Documento inicial de arquitetura em evolução  
-**Versão:** 0.3  
-**Plataforma cliente principal:** Android  
-**Linguagem:** Kotlin  
+**Status:** Arquitetura de produção definida, sujeita a refinamentos de implementação
+
+**Versão:** 0.4
+
+**Plataforma cliente principal:** Android
+
+**Linguagem:** Kotlin
+
 **UI:** Jetpack Compose
 
 ---
@@ -16,7 +20,7 @@ A solução de IA será tratada pela aplicação como uma **caixa preta**, conhe
 
 Da mesma forma, a integração com os óculos deve ser abstraída para que o núcleo da aplicação não dependa diretamente de um dispositivo ou SDK específico.
 
-Este documento descreve principalmente **responsabilidades, dependências e contratos lógicos**. Ele não determina antecipadamente a topologia final de implantação.
+Este documento descreve **responsabilidades, dependências, contratos lógicos e a topologia de persistência definida para produção**. A experiência principal, a IA, a orquestração e as regras de negócio executam no aplicativo Android. Fora do aplicativo ficam apenas persistência, sincronização, entrega de notificações e seus recursos de dados remotos.
 
 ---
 
@@ -62,7 +66,7 @@ A arquitetura parte dos seguintes princípios:
 6. **A UI não deve conter regra de negócio.**
 7. **ViewModels não devem funcionar como orquestradores de todo o fluxo.**
 8. **Integrações externas devem ficar atrás de contratos.**
-9. **A aplicação deve permitir mocks para captura, IA, persistência e backend.**
+9. **A aplicação deve permitir mocks para captura, IA, persistência e serviços remotos.**
 10. **Dados efêmeros e persistentes devem ser explicitamente diferenciados.**
 11. **Divergências, incertezas e tentativas abortadas também são eventos relevantes.**
 12. **A estrutura deve privilegiar fronteiras claras sem modularização física prematura.**
@@ -83,20 +87,9 @@ A definição adotada neste momento é:
 
 > **Aplicação Kotlin organizada em camadas e por responsabilidades, inspirada em Clean Architecture e Ports & Adapters, utilizando MVVM + UDF na apresentação e contratos explícitos para IA, dispositivos e serviços externos.**
 
-Não será adotado, neste momento, o termo **monólito modular** como definição da solução.
+Para produção, o aplicativo Android concentra apresentação, casos de uso, coordenação da sessão, validação determinística e integrações com óculos e IA. A persistência operacional é **local-first**, usando SQLite por meio do Room. A infraestrutura remota reúne WAF, reverse proxy, API HTTPS mínima e PostgreSQL autogerenciado. Imagens e backups são mantidos em armazenamento de objetos externo.
 
-A razão é que ainda não está decidido onde cada componente será executado. Por exemplo, partes da solução de IA poderão futuramente estar:
-
-```text
-- no mesmo APK Android;
-- em outro APK ou processo local;
-- em um serviço executado no próprio dispositivo;
-- nos óculos, caso o SDK permita;
-- em backend próprio;
-- em serviços de IA na cloud.
-```
-
-Essas alternativas são decisões de **topologia de execução/deployment**, e não alteram a organização lógica das camadas enquanto os contratos forem preservados.
+O serviço remoto não coordena a sessão e não executa os modelos de IA. Suas responsabilidades são autenticação, autorização, idempotência, validação estrutural, persistência, consulta e sincronização. O aplicativo nunca acessa diretamente o PostgreSQL nem recebe suas credenciais.
 
 Os diagramas arquiteturais e de fluxo deste documento utilizam **Mermaid** quando a notação melhora a leitura e facilita manutenção/versionamento no próprio Markdown. Estruturas de diretórios, listas de componentes e exemplos de dados permanecem em blocos de texto quando isso for mais legível.
 
@@ -111,7 +104,7 @@ flowchart TD
     P["Presentation<br/>Jetpack Compose · ViewModel · UiState · Navigation"]
     A["Application<br/>Use Cases · Session Coordinator · Orchestration"]
     D["Domain<br/>Entities · Validation · FSM · Policies · Events"]
-    I["Infrastructure<br/>Glasses · IA · Storage · Backend · Android APIs"]
+    I["Infrastructure<br/>Glasses · IA · Storage · Remote Services · Android APIs"]
 
     P --> A
     A --> D
@@ -151,7 +144,7 @@ flowchart TD
     DG --> EV
     UN --> EV
     EV --> AR[AdministrationRepository]
-    AR --> HB[Histórico / Backend]
+    AR --> HB[Histórico / Persistência remota]
 ```
 
 ---
@@ -169,6 +162,8 @@ data class AdministrationSession(
     val status: AdministrationStatus
 )
 ```
+
+A sessão nasce sem `patientId`: sua criação é consequência irrevogável da wake word. O paciente é associado somente após `PatientResolved`; até esse evento, tentativas e evidências são correlacionadas exclusivamente por `SessionId`.
 
 Durante alguns segundos, a aplicação acumula evidências relacionadas à mesma tentativa:
 
@@ -266,30 +261,24 @@ interface AiGateway {
 }
 ```
 
-A implementação concreta pode mudar sem alterar o domínio.
-
-Possibilidades futuras:
+A implementação concreta pode mudar sem alterar o domínio, mas sua execução permanece no dispositivo Android.
 
 ```mermaid
 flowchart LR
     G[AiGateway] --> L[LocalAiAdapter]
-    G --> C[CloudAiAdapter]
-    G --> S[SeparateAppAiAdapter]
-    G --> H[HybridAiAdapter]
+    G --> S[LocalSdkAiAdapter]
     G --> F[FakeAiAdapter]
 ```
 
-A arquitetura não assume que todas as capacidades de IA serão executadas no mesmo local.
-
-Por exemplo:
+A divisão interna das capacidades pode utilizar bibliotecas ou SDKs diferentes, desde que todas sejam integradas localmente:
 
 ```text
 Speech        -> local
-Medication    -> cloud
+Medication    -> local
 Face matching -> local
 ```
 
-ou qualquer outra distribuição compatível com os contratos.
+O serviço remoto não recebe áudio ou frames para inferência e não implementa o `AiGateway`.
 
 ---
 
@@ -364,16 +353,14 @@ interface PrescriptionRepository {
 }
 ```
 
-Os dados poderão vir de:
+Os dados serão lidos pelo aplicativo a partir da fonte local:
 
 ```text
-cache local
 Room
-backend remoto
-sincronização híbrida
+SQLite
 ```
 
-sem alterar o uso desses contratos pelo domínio/aplicação.
+Os repositórios atualizam essa fonte por sincronização com a API remota, sem alterar os contratos usados pelo domínio e pela aplicação. A UI e o domínio não consultam a API diretamente.
 
 ---
 
@@ -521,6 +508,9 @@ Principais conceitos previstos:
 Patient
 PatientId
 PatientFaceReference
+Account
+Caregiver
+Responsible
 Medication
 MedicationId
 Dosage
@@ -532,6 +522,10 @@ AdministrationAttempt
 AdministrationValidation
 AdministrationState
 DomainEvent
+Emergency
+ScheduledDose
+Notification
+NotificationDelivery
 ```
 
 Não devem aparecer no domínio tipos como:
@@ -581,7 +575,7 @@ data class MedicationAdministration(
     val dosage: Dosage,
     val administeredAt: Instant,
     val caregiverId: CaregiverId,
-    val medicationImage: MedicationImage?,
+    val medicationImage: MedicationImage,
     val verification: VerificationSummary
 )
 ```
@@ -592,9 +586,9 @@ Essa separação permite registrar tentativas relevantes sem tratá-las como dos
 
 ## 20. Persistência e histórico
 
-Após confirmação, a aplicação deve persistir o registro de administração.
+Após a confirmação, o aplicativo deve persistir o registro da administração localmente antes de informar sucesso ao cuidador. A gravação do registro e da operação pendente de sincronização ocorre na mesma transação Room/SQLite.
 
-O histórico funcional deverá conter, no mínimo, conforme requisitos atuais:
+O histórico funcional deverá conter, obrigatoriamente:
 
 ```text
 paciente
@@ -615,6 +609,8 @@ versão das regras
 status de sincronização
 ```
 
+A imagem do medicamento é evidência obrigatória de auditoria. Uma sessão não pode produzir `MedicationAdministration` confirmada sem que a imagem tenha sido capturada, validada, persistida localmente e associada ao registro. Falha de captura ou persistência da imagem resulta em tentativa não confirmada. A sincronização do binário pode ocorrer depois, mas a cópia local permanece protegida até a confirmação do upload e da integridade pelo servidor. `AdministrationEvidence.medicationImage` continua anulável apenas enquanto as evidências estão sendo acumuladas; o validator exige seu preenchimento para confirmar a administração.
+
 O acesso será feito através de contrato:
 
 ```kotlin
@@ -625,7 +621,438 @@ interface AdministrationRepository {
 }
 ```
 
-A implementação pode utilizar persistência local, backend remoto ou ambas.
+A implementação de produção utiliza:
+
+```text
+Android                          Infraestrutura remota
+Room                            WAF + reverse proxy + API HTTPS
+SQLite                          PostgreSQL autogerenciado
+WorkManager                     Object Storage externo
+Outbox local                    Backup e restauração externos
+```
+
+Room é a biblioteca de persistência Android e SQLite é o banco embarcado no dispositivo. Room não faz parte do domínio e não é o backend. O banco PostgreSQL permanece inacessível diretamente pelo aplicativo; somente o serviço de persistência possui suas credenciais.
+
+### 20.1 Fluxo local-first e sincronização
+
+```mermaid
+flowchart LR
+    G[Óculos] --> APP[Aplicativo Android]
+    APP --> DOM[Domínio e validação]
+    DOM --> TX[Transação Room]
+    TX --> SQL[(SQLite)]
+    TX --> OUT[Outbox PENDING]
+    OUT --> WM[WorkManager]
+    WM -->|HTTPS + idempotency key| API[API mínima de persistência]
+    API --> PG[(PostgreSQL dedicado)]
+    API --> OBJ[(Object Storage externo)]
+    API -->|confirmação / cursor| WM
+    WM -->|marca SYNCED| SQL
+```
+
+Regras do fluxo:
+
+1. a confirmação funcional depende da persistência local, não da latência da infraestrutura remota;
+2. toda escrita sincronizável gera uma entrada de outbox na mesma transação do dado de negócio;
+3. o WorkManager envia operações quando houver conectividade e repete falhas transitórias com backoff;
+4. cada operação utiliza UUID e chave de idempotência para impedir duplicidade;
+5. o servidor confirma a gravação e devolve versão/cursor de sincronização;
+6. leituras da aplicação continuam vindo do SQLite, atualizado após sincronizações push/pull;
+7. registros clínicos e de auditoria são append-only; correções produzem eventos de retificação, não sobrescrita silenciosa.
+
+Estados mínimos da sincronização:
+
+```kotlin
+enum class SyncStatus {
+    PENDING,
+    SYNCING,
+    SYNCED,
+    FAILED
+}
+```
+
+### 20.2 Serviço mínimo de persistência e notificações
+
+O componente remoto é um serviço consumido pelo aplicativo, e não um segundo orquestrador do fluxo de administração.
+
+Responsabilidades:
+
+```text
+autenticar e autorizar o cuidador/dispositivo
+receber DTOs versionados por HTTPS
+validar esquema e invariantes de segurança
+garantir idempotência
+persistir e consultar dados no PostgreSQL
+emitir cursores/versões para sincronização incremental
+gerenciar referências e políticas do Object Storage externo
+produzir logs de auditoria e métricas operacionais
+criar e entregar notificações de urgência e dose omitida
+registrar tentativas, entrega e confirmação do responsável
+```
+
+Fora de responsabilidade:
+
+```text
+wake word
+captura de áudio e vídeo
+inferência de IA
+coordenação da sessão
+decisão de validação da administração
+máquina de estados funcional
+```
+
+Endpoints iniciais previstos:
+
+```text
+POST /v1/sync/operations
+GET  /v1/sync/changes?after={cursor}
+GET  /v1/patients
+POST /v1/patients
+GET  /v1/patients/{id}
+PATCH /v1/patients/{id}
+GET  /v1/patients/{id}/responsibles
+POST /v1/patients/{id}/responsibles
+DELETE /v1/patients/{id}/responsibles/{responsibleId}
+GET  /v1/patients/{id}/prescriptions
+POST /v1/patients/{id}/prescriptions
+PATCH /v1/prescriptions/{id}
+GET  /v1/medications
+POST /v1/medications
+GET  /v1/patients/{id}/administrations
+POST /v1/administrations
+POST /v1/administration-attempts
+POST /v1/emergencies
+PUT  /v1/device-registrations/{id}
+DELETE /v1/device-registrations/{id}
+POST /v1/notifications/{id}/acknowledgements
+POST /v1/media/upload-requests
+```
+
+`POST /v1/sync/operations` é o endpoint genérico da outbox e aceita operações versionadas de criação/alteração. Os endpoints específicos permanecem disponíveis para fluxos síncronos e consultas explícitas.
+
+### 20.3 Entrega de notificações
+
+Alertas de urgência e dose omitida exigem entrega rastreável ao responsável. Persistir o alerta não equivale a entregá-lo, e o retorno do provedor push não equivale a leitura humana.
+
+```mermaid
+flowchart LR
+    EV[UrgencyReported / DoseOmitted] --> NTX[Transação PostgreSQL]
+    NTX --> N[Notification]
+    NTX --> NO[Notification Outbox]
+    NO --> DISP[NotificationDispatcher]
+    DISP --> GW[NotificationGateway]
+    GW --> FCM[Firebase Cloud Messaging]
+    FCM --> APP[App do responsável]
+    APP --> ACK[Confirmação explícita]
+    ACK --> API[API HTTPS]
+    API --> DEL[NotificationDelivery ACKNOWLEDGED]
+    DISP --> RETRY[Retry / escalonamento]
+```
+
+Componentes:
+
+```text
+NotificationPolicy
+NotificationCoordinator
+NotificationOutbox
+NotificationDispatcher
+NotificationGateway
+FcmNotificationAdapter
+DeviceRegistrationRepository
+NotificationRepository
+```
+
+Decisão de transporte:
+
+- o aplicativo de produção requer dispositivo Android com Google Play Services disponível e atualizado;
+- **Firebase Cloud Messaging (FCM)** é o único transporte push adotado, por oferecer conexão eficiente em segundo plano sem exigir serviço foreground e por não cobrar pelo Cloud Messaging;
+- o push contém apenas identificador opaco, tipo e prioridade; detalhes de paciente/medicação são buscados na API após autenticação;
+- tokens são vinculados a conta e dispositivo, rotacionados e removidos quando inválidos;
+- o servidor registra `QUEUED`, `SENT`, `PROVIDER_ACCEPTED`, `DELIVERED` quando disponível, `ACKNOWLEDGED` e `FAILED`;
+- alertas críticos não confirmados dentro da política geram novas tentativas e podem acionar um canal de escalonamento ainda a definir;
+- nenhuma tecnologia push garante que uma pessoa viu a mensagem; somente o acknowledgement explícito cumpre essa função;
+- ausência ou falha do Google Play Services impede considerar o dispositivo apto a receber alertas remotos; essa condição deve ser exibida no provisionamento e na monitoração do dispositivo.
+
+`NotificationGateway` permanece como port do domínio/aplicação para permitir mocks, testes e isolamento do SDK Firebase, não para sustentar múltiplos provedores em produção.
+
+### 20.4 Modelo lógico relacional
+
+O modelo lógico abaixo orienta tanto o schema PostgreSQL quanto as entidades locais do Room. Os schemas físicos podem conter diferenças operacionais, como `sync_status` apenas no dispositivo e colunas de auditoria adicionais no servidor.
+
+```mermaid
+erDiagram
+    ACCOUNT ||--o| CAREGIVER : possui_perfil
+    ACCOUNT ||--o| RESPONSIBLE : possui_perfil
+    CAREGIVER ||--o{ CAREGIVER_PATIENT : cuida
+    PATIENT ||--o{ CAREGIVER_PATIENT : recebe_cuidado
+    RESPONSIBLE ||--o{ RESPONSIBLE_PATIENT : responde_por
+    PATIENT ||--|{ RESPONSIBLE_PATIENT : possui_responsavel
+    PATIENT ||--o{ PRESCRIPTION : possui
+    PRESCRIPTION ||--|{ PRESCRIPTION_ITEM : contem
+    MEDICATION ||--o{ PRESCRIPTION_ITEM : referencia
+    PRESCRIPTION_ITEM ||--|{ MEDICATION_SCHEDULE : agenda
+    PATIENT o|--o{ ADMINISTRATION_SESSION : identificado_em
+    CAREGIVER ||--o{ ADMINISTRATION_SESSION : inicia
+    ADMINISTRATION_SESSION ||--o{ ADMINISTRATION_ATTEMPT : registra
+    ADMINISTRATION_SESSION ||--o| MEDICATION_ADMINISTRATION : confirma
+    PATIENT ||--o{ MEDICATION_ADMINISTRATION : recebe
+    PRESCRIPTION_ITEM ||--o{ MEDICATION_ADMINISTRATION : fundamenta
+    MEDICATION_SCHEDULE ||--o{ MEDICATION_ADMINISTRATION : atende
+    ADMINISTRATION_SESSION ||--o{ DOMAIN_EVENT : produz
+    MEDICATION_ADMINISTRATION ||--|| ADMINISTRATION_MEDIA : exige
+
+    ACCOUNT {
+        uuid id PK
+        string external_auth_id UK
+        string email UK
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    CAREGIVER {
+        uuid id PK
+        uuid account_id FK,UK
+        string name
+        datetime created_at
+        datetime updated_at
+    }
+    RESPONSIBLE {
+        uuid id PK
+        uuid account_id FK,UK
+        string name
+        string phone
+        datetime created_at
+        datetime updated_at
+    }
+    PATIENT {
+        uuid id PK
+        string name
+        date birth_date
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    CAREGIVER_PATIENT {
+        uuid caregiver_id PK,FK
+        uuid patient_id PK,FK
+        string role
+        datetime granted_at
+    }
+    RESPONSIBLE_PATIENT {
+        uuid responsible_id PK,FK
+        uuid patient_id PK,FK
+        boolean primary_contact
+        datetime granted_at
+    }
+    MEDICATION {
+        uuid id PK
+        string name
+        string normalized_name
+        string presentation
+        datetime created_at
+    }
+    PRESCRIPTION {
+        uuid id PK
+        uuid patient_id FK
+        datetime valid_from
+        datetime valid_until
+        string status
+        int version
+        datetime created_at
+        datetime updated_at
+    }
+    PRESCRIPTION_ITEM {
+        uuid id PK
+        uuid prescription_id FK
+        uuid medication_id FK
+        decimal dosage_value
+        string dosage_unit
+        string instructions
+    }
+    MEDICATION_SCHEDULE {
+        uuid id PK
+        uuid prescription_item_id FK
+        time scheduled_time
+        int tolerance_before_min
+        int tolerance_after_min
+        string timezone
+    }
+    ADMINISTRATION_SESSION {
+        uuid id PK
+        uuid patient_id FK "nullable ate identificacao"
+        uuid caregiver_id FK
+        datetime started_at
+        datetime ended_at
+        string status
+        string trigger
+        string rules_version
+    }
+    ADMINISTRATION_ATTEMPT {
+        uuid id PK
+        uuid session_id FK
+        string outcome
+        json evidence_summary
+        datetime occurred_at
+    }
+    MEDICATION_ADMINISTRATION {
+        uuid id PK
+        uuid session_id FK,UK
+        uuid patient_id FK
+        uuid prescription_item_id FK
+        uuid schedule_id FK
+        decimal dosage_value
+        string dosage_unit
+        datetime administered_at
+        string verification_result
+        json verification_summary
+        datetime created_at
+    }
+    DOMAIN_EVENT {
+        uuid id PK
+        uuid session_id FK
+        string event_type
+        json payload
+        datetime occurred_at
+        int schema_version
+    }
+    ADMINISTRATION_MEDIA {
+        uuid id PK
+        uuid administration_id FK,UK
+        string bucket_name
+        string object_key
+        string content_type
+        bigint size_bytes
+        string checksum_sha256
+        datetime retention_until
+        datetime created_at
+    }
+```
+
+`ADMINISTRATION_SESSION.patient_id` é anulável porque a sessão nasce com a wake word e o paciente só é resolvido posteriormente. Já `MEDICATION_ADMINISTRATION.patient_id` é obrigatório, pois nenhuma administração pode ser confirmada sem identificação.
+
+`ADMINISTRATION_MEDIA` é obrigatória e possui relação um-para-um com `MEDICATION_ADMINISTRATION`. Ela não armazena o conteúdo binário; registra onde está a imagem, seu tipo, tamanho, checksum e prazo de retenção. A imagem fica em Object Storage compatível com S3 e é acessada somente por autorização temporária emitida pela API.
+
+#### Modelo de notificações
+
+```mermaid
+erDiagram
+    ACCOUNT ||--o{ DEVICE_REGISTRATION : registra
+    PATIENT ||--o{ SCHEDULED_DOSE : possui
+    MEDICATION_SCHEDULE ||--o{ SCHEDULED_DOSE : materializa
+    ADMINISTRATION_SESSION ||--o{ EMERGENCY : reporta
+    PATIENT o|--o{ EMERGENCY : relacionado_a
+    SCHEDULED_DOSE ||--o{ NOTIFICATION : gera
+    EMERGENCY ||--|{ NOTIFICATION : gera
+    NOTIFICATION ||--|{ NOTIFICATION_RECIPIENT : direciona
+    ACCOUNT ||--o{ NOTIFICATION_RECIPIENT : recebe
+    NOTIFICATION_RECIPIENT ||--o{ NOTIFICATION_DELIVERY : tenta
+    DEVICE_REGISTRATION ||--o{ NOTIFICATION_DELIVERY : destino
+    NOTIFICATION_RECIPIENT ||--o| NOTIFICATION_ACKNOWLEDGEMENT : confirma
+
+    DEVICE_REGISTRATION {
+        uuid id PK
+        uuid account_id FK
+        string provider
+        string token_encrypted
+        string platform
+        string status
+        datetime last_seen_at
+        datetime created_at
+    }
+    SCHEDULED_DOSE {
+        uuid id PK
+        uuid patient_id FK
+        uuid schedule_id FK
+        datetime expected_at
+        datetime window_start
+        datetime window_end
+        string status
+    }
+    EMERGENCY {
+        uuid id PK
+        uuid session_id FK
+        uuid patient_id FK "nullable"
+        uuid reported_by_account_id FK
+        string severity
+        datetime reported_at
+    }
+    NOTIFICATION {
+        uuid id PK
+        uuid scheduled_dose_id FK "nullable"
+        uuid emergency_id FK "nullable"
+        string type
+        string priority
+        string status
+        datetime created_at
+    }
+    NOTIFICATION_RECIPIENT {
+        uuid id PK
+        uuid notification_id FK
+        uuid account_id FK
+        string status
+        datetime acknowledged_at
+    }
+    NOTIFICATION_DELIVERY {
+        uuid id PK
+        uuid recipient_id FK
+        uuid device_registration_id FK
+        string provider
+        string provider_message_id
+        string status
+        int attempt_number
+        datetime attempted_at
+        datetime delivered_at
+        string failure_code
+    }
+    NOTIFICATION_ACKNOWLEDGEMENT {
+        uuid id PK
+        uuid recipient_id FK,UK
+        uuid account_id FK
+        datetime acknowledged_at
+    }
+```
+
+### 20.5 Modelo local e modelo remoto
+
+No SQLite local, cada entidade sincronizável deve conter metadados operacionais:
+
+```text
+sync_status
+local_updated_at
+server_version
+last_sync_error
+```
+
+A tabela local `sync_outbox` mantém:
+
+```text
+id
+aggregate_type
+aggregate_id
+operation
+payload
+idempotency_key
+attempt_count
+next_attempt_at
+created_at
+```
+
+No PostgreSQL, restrições, índices e transações protegem as relações. Índices iniciais recomendados:
+
+```text
+prescription(patient_id, status, valid_from, valid_until)
+medication_schedule(prescription_item_id, scheduled_time)
+medication_administration(prescription_item_id, administered_at)
+administration_session(patient_id, started_at)
+domain_event(session_id, occurred_at)
+administration_media(administration_id)
+scheduled_dose(patient_id, expected_at, status)
+notification_recipient(account_id, status)
+notification_delivery(recipient_id, attempted_at)
+device_registration(account_id, status)
+```
+
+UUIDs são gerados no dispositivo para permitir escrita offline. Horários de negócio são armazenados como instantes UTC; a agenda preserva também o fuso aplicável. Valores de dosagem usam decimal e unidade explícita, nunca ponto flutuante binário isolado. No SQLite, o decimal deve ser persistido como representação textual canônica ou inteiro escalado por regra explícita, pois o banco não possui um tipo decimal exato equivalente ao PostgreSQL.
 
 ---
 
@@ -698,7 +1125,7 @@ Esses eventos podem alimentar diferentes consumidores:
 flowchart LR
     E[Domain Event] --> A[Audit Log]
     E --> U[UI Update]
-    E --> S[Sync / Backend]
+    E --> S[Sync / Serviço remoto]
 ```
 
 Nem todo evento precisa ser persistido de forma definitiva; isso dependerá da política de auditoria e retenção.
@@ -807,9 +1234,9 @@ O projeto possui dependências externas com alta probabilidade de mudança:
 ```text
 SDK dos óculos
 modelos e provedores de IA
-topologia local/cloud
-backend
-persistência
+Room / SQLite
+API de sincronização
+PostgreSQL dedicado / Object Storage externo
 APIs Android
 ```
 
@@ -834,57 +1261,107 @@ flowchart TD
     I[Infrastructure] -->|implementa| P
     I --> M[Meta SDK]
     I --> L[IA local]
-    I --> C[IA cloud]
-    I --> B[Banco]
-    I --> BE[Backend]
+    I --> R[Room / SQLite]
+    I --> API[API de persistência]
 ```
 
 Não será utilizada uma versão dogmática de Clean Architecture. O objetivo é preservar fronteiras úteis, não multiplicar classes, DTOs e mappers sem necessidade.
 
 ---
 
-## 27. Topologia de execução ainda em aberto
+## 27. Topologia de execução definida
 
-A arquitetura lógica não determina a topologia física final.
-
-Uma possibilidade é:
+A topologia de produção concentra no aplicativo Android tudo o que participa do caminho crítico da administração. A infraestrutura remota permanece fora desse caminho e recebe dados por sincronização.
 
 ```mermaid
 flowchart LR
-    G[Óculos] --> A[Android App]
-    A --> I[IA local]
-    A --> B[Backend]
+    subgraph LOCAL["Dispositivo Android"]
+        G[Óculos] --> APP[Aplicativo CuidarAI]
+        APP --> AI[IA local]
+        APP --> DOM[Domínio / FSM]
+        DOM --> ROOM[Room]
+        ROOM --> SQLITE[(SQLite)]
+        SQLITE --> SYNC[Outbox + WorkManager]
+    end
+
+    subgraph SERVER["Infraestrutura remota"]
+        WAF[WAF]
+        RP[Reverse proxy TLS]
+        API[API mínima HTTPS]
+        ND[NotificationDispatcher]
+        PG[(PostgreSQL autogerenciado)]
+        WAF --> RP --> API
+        API --> PG
+        API --> ND
+    end
+
+    subgraph OFFSITE["Armazenamento externo"]
+        OBJ[(Object Storage S3)]
+        BKP[(Backups + WAL)]
+    end
+
+    subgraph PUSH["Push externo"]
+        FCM[Firebase Cloud Messaging]
+        RESP[App do responsável]
+        FCM --> RESP
+    end
+
+    API --> OBJ
+    PG -->|pgBackRest / WAL-G| BKP
+    ND --> FCM
+
+    SYNC -->|HTTPS| WAF
+    API -->|confirmações e mudanças| SYNC
 ```
 
-Outra:
+Consequências da decisão:
 
-```mermaid
-flowchart LR
-    G[Óculos] --> A[Android App]
-    A --> L[APK / serviço local de IA]
-    A --> C[Cloud AI]
-    A --> B[Backend]
+- a sessão não depende da latência da infraestrutura remota para ser concluída localmente;
+- perda de conectividade não impede captura, validação e registro local;
+- o histórico central pode apresentar atraso enquanto existirem itens pendentes;
+- a API remota permanece pequena e substituível;
+- WAF, proxy, API e PostgreSQL compõem a infraestrutura remota, com isolamento de processos e permissões;
+- a UI deve tornar visível o estado de sincronização e falhas persistentes;
+- ações que dependem de comunicação externa imediata, como alertas remotos de urgência, devem informar claramente quando ainda não foram entregues.
+
+### 27.1 Configuração da infraestrutura remota
+
+```text
+Infraestrutura remota
+├── WAF
+├── reverse proxy / terminação TLS
+├── API mínima
+├── NotificationDispatcher
+├── PostgreSQL
+├── volume de dados dedicado
+├── agente de backup e arquivamento de WAL
+└── agentes de métricas, logs e alertas
+
+Infraestrutura externa
+├── Object Storage para imagens
+└── Object Storage separado para backups e WAL
 ```
 
-Outra configuração híbrida:
+Diretrizes obrigatórias:
 
-```mermaid
-flowchart LR
-    A[Android App] --> S[Speech local]
-    A --> F[Face local]
-    A --> M[Medication AI cloud]
-    A --> B[Backend de dados]
-```
+- somente a API HTTPS é exposta à internet; a porta do PostgreSQL permanece bloqueada externamente;
+- API e PostgreSQL usam usuários de sistema, processos e credenciais separados;
+- o diretório de dados do PostgreSQL usa volume persistente dedicado;
+- backups completos/incrementais e WAL contínuo são enviados para armazenamento externo usando `pgBackRest` ou `WAL-G`;
+- a política deve definir RPO, RTO, retenção, criptografia e rotação de credenciais;
+- restaurações são testadas periodicamente em ambiente isolado;
+- monitoração cobre CPU, memória, disco, IOPS, conexões, locks, replication/WAL lag, falhas de backup e expiração de certificados;
+- o bucket de imagens é privado e possui criptografia, versionamento/soft delete e lifecycle/retention;
+- uploads e downloads usam autorização curta emitida pela API; nenhuma imagem é pública;
+- áudio, vídeo e frames faciais intermediários não são enviados ao Object Storage.
 
-Todas permanecem compatíveis com a mesma arquitetura lógica desde que respeitem os contratos definidos.
-
-Por esse motivo, termos associados à unidade de deployment, como **monólito**, **microsserviços** ou **aplicação distribuída**, não serão utilizados como definição principal nesta fase.
+Essa topologia aceita inicialmente o risco de indisponibilidade de uma única máquina porque o aplicativo continua registrando localmente durante a falha. Ela não aceita perda silenciosa: dados já sincronizados devem ser recuperáveis pelo backup externo. Quando o SLA exigir alta disponibilidade, deve-se adicionar réplica/standby em outro host e failover; aumentar apenas a capacidade da máquina não elimina o ponto único de falha.
 
 ---
 
 ## 28. Organização inicial do código Android
 
-Para o protótipo, pode-se iniciar com um módulo Android principal e preservar as fronteiras por pacotes, sem assumir que todos os componentes da solução final estarão no mesmo APK.
+O aplicativo inicia com um módulo Android principal e preserva as fronteiras por pacotes. O serviço remoto é um deployment separado e restrito à persistência, sincronização e entrega de notificações.
 
 ```text
 com.cuidarai.app
@@ -911,13 +1388,15 @@ com.cuidarai.app
 │   ├── glasses/
 │   ├── wakeword/
 │   ├── persistence/
-│   ├── backend/
+│   ├── sync/
+│   ├── remote/
+│   ├── notification/
 │   └── android/
 │
 └── di/
 ```
 
-A modularização Gradle ou separação em outros APKs/processos poderá ser introduzida quando houver justificativa concreta de deployment, ownership, desempenho ou isolamento.
+A modularização Gradle poderá ser introduzida quando houver justificativa concreta de ownership, desempenho ou isolamento. O código da API mínima deve permanecer em projeto/módulo de deployment próprio e compartilhar contratos por schema versionado, não por dependência no domínio Android.
 
 ---
 
@@ -945,12 +1424,17 @@ ResolvePatientUseCase
 ValidateAdministrationUseCase
 CompleteAdministrationUseCase
 RegisterAdministrationUseCase
+ReportEmergencyUseCase
+AcknowledgeNotificationUseCase
 ```
 
 ### Domain
 
 ```text
 Patient
+Account
+Caregiver
+Responsible
 Medication
 Prescription
 Dosage
@@ -961,6 +1445,10 @@ MedicationAdministration
 AdministrationValidator
 AdministrationStateMachine
 DomainEvent
+Emergency
+ScheduledDose
+Notification
+NotificationDelivery
 ```
 
 ### Infrastructure
@@ -974,12 +1462,18 @@ RecordedCaptureDevice
 AiGateway
 FakeAiAdapter
 LocalAiAdapter
-CloudAiAdapter
 PatientRepositoryImpl
 PrescriptionRepositoryImpl
 AdministrationRepositoryImpl
-BackendGateway
+PersistenceApiClient
 LocalDatabase
+RoomDatabase
+SyncOutbox
+SyncWorker
+NotificationGateway
+FcmNotificationAdapter
+DeviceRegistrationRepositoryImpl
+NotificationRepositoryImpl
 ```
 
 ---
@@ -1003,7 +1497,7 @@ Fluxo inicial:
 
 ```mermaid
 flowchart TD
-    A[Simular "Hey CuidarAI"] --> B[Iniciar sessão]
+    A["Simular 'Hey CuidarAI'"] --> B[Iniciar sessão]
     B --> C[Injetar áudio e frames gravados]
     C --> D[Fake AI produz observações]
     D --> E[Montar AdministrationEvidence]
@@ -1060,10 +1554,12 @@ Testes específicos de:
 SDK dos óculos
 captura
 wake word
-IA local/remota
-persistência
-rede
-backend
+IA local
+Room e migrations SQLite
+outbox e retries idempotentes
+contratos e erros da API
+integração PostgreSQL
+sincronização e resolução de conflitos
 ```
 
 ### UI
@@ -1093,20 +1589,40 @@ Kotlin Coroutines
 StateFlow / Flow
 Gradle Kotlin DSL
 JUnit
+Room
+SQLite
+WorkManager
+```
+
+### Persistência e integração definidas
+
+```text
+Room sobre SQLite no Android
+WorkManager para sincronização persistente
+API HTTPS versionada
+Infraestrutura remota com WAF, proxy, API mínima e PostgreSQL
+PostgreSQL autogerenciado
+Object Storage externo para imagens e backups
+pgBackRest ou WAL-G para backup e PITR
+Google Play Services obrigatório nos dispositivos de produção
+Firebase Cloud Messaging como transporte push único
+NotificationGateway para isolamento do provedor
+JSON para DTOs e payloads versionados
 ```
 
 Tecnologias ainda a definir:
 
 ```text
 Dependency Injection
-persistência local
 cliente HTTP
 serialização
 SDK dos óculos
 mecanismo de wake word
-IA local/remota
-backend
-armazenamento de imagens
+implementação/provedor da IA local
+framework Kotlin da API mínima
+provedor e especificação da infraestrutura remota
+provedor S3-compatible do Object Storage
+canal de escalonamento para alertas críticos não confirmados
 observabilidade
 ```
 
@@ -1115,7 +1631,7 @@ observabilidade
 ## 33. Decisões em aberto
 
 1. Contratos definitivos de entrada e saída da IA.
-2. Distribuição das funções de IA entre local, outro processo/APK e cloud.
+2. Escolha e integração dos modelos/SDKs de IA executados dentro do aplicativo.
 3. Contrato definitivo dos óculos.
 4. Mecanismo de wake word.
 5. Estratégia de início e término da captura contínua.
@@ -1127,13 +1643,13 @@ observabilidade
 11. Estratégia de armazenamento e proteção dos embeddings faciais.
 12. Política para descarte de frames faciais.
 13. Retenção da imagem do medicamento.
-14. Persistência local e sincronização com backend.
-15. Autenticação do cuidador.
-16. Funcionamento offline e comportamento em perda de conectividade.
+14. Política de conflitos e retificações após sincronização.
+15. Autenticação do cuidador e provisionamento do dispositivo.
+16. SLA, timeout de acknowledgement e canal de escalonamento para alertas críticos.
 17. Escolha de Dependency Injection.
-18. Escolha do cliente HTTP.
-19. Observabilidade e auditoria.
-20. Modularização Gradle e eventual separação em outros APKs/processos.
+18. Escolha do cliente HTTP e serialização.
+19. Framework Kotlin e dimensionamento inicial da API.
+20. Especificação do servidor, política de backup/PITR, HA, retenção, observabilidade e auditoria.
 
 ---
 
@@ -1152,17 +1668,21 @@ flowchart TD
     S9[9. Implementar AdministrationSessionCoordinator]
     S10[10. Criar ViewModel + UiState]
     S11[11. Criar tela Compose do fluxo]
-    S12[12. Criar histórico local fake]
-    S13[13. Substituir adapters por implementações reais]
+    S12[12. Implementar Room + SQLite]
+    S13[13. Implementar Outbox + WorkManager]
+    S14[14. Implementar API mínima + PostgreSQL]
+    S15[15. Validar sincronização, idempotência e conflitos]
+    S16[16. Implementar notificações FCM + acknowledgement]
+    S17[17. Substituir adapters de IA/dispositivo por implementações reais]
 
-    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13 --> S14 --> S15 --> S16 --> S17
 ```
 
 ---
 
 ## 35. Resumo da decisão
 
-A arquitetura não será definida pela localização da IA nem pela tecnologia dos óculos.
+A arquitetura concentra o caminho crítico da administração no aplicativo Android e mantém a persistência central fora dele por uma fronteira estreita de sincronização.
 
 ```mermaid
 flowchart TD
@@ -1170,7 +1690,8 @@ flowchart TD
     A --> D[Domain]
     DA[Device Adapter] --> C[Ports / Contracts]
     AI[AI Adapter] --> C
-    DT[Data Adapter] --> C
+    RM[Room Adapter] --> C
+    SY[Sync Adapter] --> C
     C --> D
 ```
 
@@ -1178,4 +1699,4 @@ A **sessão de administração de medicamento** é a unidade funcional central.
 
 A IA produz observações. O domínio correlaciona essas observações com paciente e prescrição e aplica regras determinísticas. Somente após a validação é criado o registro de uma dose administrada.
 
-A topologia de execução permanece deliberadamente aberta: componentes podem futuramente ser executados no mesmo APK, em outro APK/processo, nos óculos, em backend próprio ou na cloud sem alterar o núcleo lógico da solução.
+A aplicação grava primeiro em SQLite por meio do Room. Uma outbox durável e o WorkManager sincronizam os dados por HTTPS através do WAF e do reverse proxy até a API mínima, que persiste no PostgreSQL autogerenciado e no Object Storage externo. A infraestrutura remota não executa a coordenação da sessão, a inferência de IA nem a decisão de domínio.
