@@ -205,8 +205,6 @@ flowchart LR
 
 Ao receber o evento, a aplicação inicia uma nova `AdministrationSession` e habilita a captura necessária de áudio e vídeo.
 
-O mecanismo concreto de wake word ainda não está definido e pode executar localmente ou depender de algum componente externo.
-
 ---
 
 ## 9. Aquisição e abstração dos óculos
@@ -1675,26 +1673,18 @@ observabilidade
 
 ## 33. Decisões em aberto
 
-1. Contratos definitivos de entrada e saída da IA.
-2. Escolha e integração dos modelos/SDKs de IA executados dentro do aplicativo.
-3. Contrato definitivo dos óculos.
-4. Mecanismo de wake word.
-5. Estratégia de início e término da captura contínua.
-6. Estrutura definitiva de `AdministrationEvidence`.
-7. Estados e eventos finais da `AdministrationStateMachine`.
-8. Critérios de confiança/inconclusividade aceitos como evidência.
-9. Forma de resolução do paciente a partir da fala.
-10. Modelo final de prescrição e janela de administração.
-11. Estratégia de armazenamento e proteção dos embeddings faciais.
-12. Política para descarte de frames faciais.
-13. Retenção da imagem do medicamento.
-14. Política de conflitos e retificações após sincronização.
-15. Autenticação do cuidador e provisionamento do dispositivo.
-16. SLA, timeout de acknowledgement e canal de escalonamento para alertas críticos.
-17. Escolha de Dependency Injection.
-18. Escolha do cliente HTTP e serialização.
-19. Framework Kotlin e dimensionamento inicial da API.
-20. Especificação do servidor, política de backup/PITR, HA, retenção, observabilidade e auditoria.
+1. Contrato definitivo dos óculos.
+2. Estrutura definitiva de `AdministrationEvidence`.
+3. Estados e eventos finais da `AdministrationStateMachine`.
+4. Critérios de confiança/inconclusividade aceitos como evidência.
+5. Forma de resolução do paciente a partir da fala.
+6. Modelo final de prescrição e janela de administração.
+7. Estratégia de armazenamento e proteção dos embeddings faciais.
+8. Política para descarte de frames faciais.
+9. Política de conflitos e retificações após sincronização.
+10. SLA, timeout de acknowledgement e canal de escalonamento para alertas críticos.
+11. Escolha de Dependency Injection.
+12. Especificação do servidor, política de backup/PITR, HA, retenção, observabilidade e auditoria.
 
 ---
 
