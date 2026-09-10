@@ -33,3 +33,24 @@ google-services.json
 # Android Profiling
 *.hprof
 node_modules
+
+# Python (tools/)
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+
+# Modelos — NUNCA commitar, arquivos de centenas de MB
+models/
+*.onnx
+*.nb
+*.gguf
+*.task
+*.tflite
+
+# Áudio pré-sintetizado gerado localmente
+tools/tts-synthesis/output/
+
+# Sistema
+.DS_Store
