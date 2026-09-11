@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 2,
+  "descricao": "Cadastro seed do CuidarIA: residentes, medicamentos, prescricoes e cenarios de demo. Fonte unica de verdade. Card C3.",
+  "geradoEm": "2026-09-10",
+
+  "configuracao": {
+    "cuidadorAtivoPadrao": "cui-ana-paula",
+    "observacao": "cuidadorAtivoPadrao e o cuidador pre-selecionado na abertura do app. A tela de selecao permite trocar. Todo registro gravado carrega o id do cuidador ativo no momento da sessao."
+  },
+
+  "medicamentos": [
+    {
+      "id": "med-resfenol-400",
+      "nomeComercial": "Resfenol",
+      "principiosAtivos": [
+        { "nome": "paracetamol", "concentracao": "400mg" },
+        { "nome": "maleato de clorfeniramina", "concentracao": "4mg" },
+        { "nome": "cloridrato de fenilefrina", "concentracao": "4mg" }
+      ],
+      "forma": "capsula",
+      "fabricante": "Hertz",
+      "sinonimos": [
+        "resfenol multipla acao"
+      ],
+      "apelidos": [
+        "o da gripe",
+        "o remedio de resfriado",
+        "o da coriza"
+      ],
+      "lasaCom": [],
+      "ambiguidadePorPrincipioAtivo": [],
+      "audioPath": "audio/medicamentos/resfenol.wav",
+      "observacao": "Validado no OCR do Moto G86: nome comercial lido corretamente em 36-219ms."
+    },
+    {
+      "id": "med-cefaliv",
+      "nomeComercial": "Cefaliv",
+      "principiosAtivos": [
+        { "nome": "dipirona", "concentracao": "350mg" },
+        { "nome": "mesilato de ergotamina", "concentracao": "1mg" },
+        { "nome": "cafeina", "concentracao": "100mg" }
+      ],
+      "forma": "comprimido",
+      "fabricante": "Ache",
+      "sinonimos": [],
+      "apelidos": [
+        "o da enxaqueca",
+        "o da dor de cabeca forte"
+      ],
+      "lasaCom": [],
+      "ambiguidadePorPrincipioAtivo": [
+        "med-dipirona-500"
+      ],
+      "audioPath": "audio/medicamentos/cefaliv.wav",
+      "observacao": "Contem dipirona 350mg. Colide por principio ativo com Dipirona 500mg. O cuidador que disser apenas 'dipirona' gera ambiguidade que o reconciliador precisa resolver."
+    },
+    {
+      "id": "med-dipirona-500",
+      "nomeComercial": "Dipirona Sodica",
+      "principiosAtivos": [
+        { "nome": "dipirona sodica", "concentracao": "500mg" }
+      ],
+      "forma": "comprimido",
+      "fabricante": "generico",
+      "sinonimos": [
+        "novalgina",
+        "metamizol"
+      ],
+      "apelidos": [
+        "o da dor",
+        "o da febre",
+        "o analgesico"
+      ],
+      "lasaCom": [],
+      "ambiguidadePorPrincipioAtivo": [
+        "med-cefaliv"
+      ],
+      "audioPath": "audio/medicamentos/dipirona.wav",
+      "observacao": "Colide por principio ativo com Cefaliv. Nao e colisao fonetica (LASA), e sobreposicao de composicao."
+    },
+    {
+      "id": "med-losartana-50",
+      "nomeComercial": "Losartana Potassica",
+      "principiosAtivos": [
+        { "nome": "losartana potassica", "concentracao": "50mg" }
+      ],
+      "forma": "comprimido",
+      "fabricante": "generico",
+      "sinonimos": [
+        "cozaar"
+      ],
+      "apelidos": [
+        "o da pressao"
+      ],
+      "lasaCom": [
+        "med-olmesartana-20"
+      ],
+      "ambiguidadePorPrincipioAtivo": [],
+      "audioPath": "audio/medicamentos/losartana.wav",
+      "observacao": "Par LASA fonetico com Olmesartana 20mg. Cenario E4 do documento de entrega. REMOVER se o card D7 nao for comprar esta caixa."
+    },
+    {
+      "id": "med-olmesartana-20",
+      "nomeComercial": "Olmesartana Medoxomila",
+      "principiosAtivos": [
+        { "nome": "olmesartana medoxomila", "concentracao": "20mg" }
+      ],
+      "forma": "comprimido",
+      "fabricante": "generico",
+      "sinonimos": [
+        "benicar"
+      ],
+      "apelidos": [
+        "o outro da pressao"
+      ],
+      "lasaCom": [
+        "med-losartana-50"
+      ],
+      "ambiguidadePorPrincipioAtivo": [],
+      "audioPath": "audio/medicamentos/olmesartana.wav",
+      "observacao": "Par LASA fonetico com Losartana 50mg. Cenario E4 do documento de entrega. REMOVER se o card D7 nao for comprar esta caixa."
+    }
+  ],
+
+  "residentes": [
+    {
+      "id": "res-maria-santos",
+      "nomeCompleto": "Maria Santos",
+      "nomeChamado": "dona Maria",
+      "dataNascimento": "1941-03-12",
+      "quarto": "12A",
+      "audioNomePath": "audio/residentes/maria-santos.wav",
+      "galeriaFacial": "galeria/res-maria-santos/",
+      "prescricoes": [
+        {
+          "id": "presc-maria-resfenol",
+          "medicamentoId": "med-resfenol-400",
+          "dose": "1 capsula",
+          "horarios": ["08:00", "14:00", "20:00"],
+          "toleranciaAntesMinutos": 30,
+          "toleranciaDepoisMinutos": 30,
+          "ativa": true,
+          "prescritoPor": "Dra. Helena Ribeiro CRM-GO 00000",
+          "inicioEm": "2026-08-20"
+        },
+        {
+          "id": "presc-maria-dipirona",
+          "medicamentoId": "med-dipirona-500",
+          "dose": "1 comprimido",
+          "horarios": ["12:00"],
+          "toleranciaAntesMinutos": 30,
+          "toleranciaDepoisMinutos": 30,
+          "ativa": true,
+          "prescritoPor": "Dra. Helena Ribeiro CRM-GO 00000",
+          "inicioEm": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "id": "res-joao-costa",
+      "nomeCompleto": "Joao Costa",
+      "nomeChamado": "seu Joao",
+      "dataNascimento": "1938-11-02",
+      "quarto": "07B",
+      "audioNomePath": "audio/residentes/joao-costa.wav",
+      "galeriaFacial": "galeria/res-joao-costa/",
+      "prescricoes": [
+        {
+          "id": "presc-joao-cefaliv",
+          "medicamentoId": "med-cefaliv",
+          "dose": "1 comprimido",
+          "horarios": ["10:00", "22:00"],
+          "toleranciaAntesMinutos": 30,
+          "toleranciaDepoisMinutos": 30,
+          "ativa": true,
+          "prescritoPor": "Dr. Paulo Andrade CRM-GO 00000",
+          "inicioEm": "2026-08-18"
+        },
+        {
+          "id": "presc-joao-dipirona",
+          "medicamentoId": "med-dipirona-500",
+          "dose": "1 comprimido",
+          "horarios": ["16:00"],
+          "toleranciaAntesMinutos": 30,
+          "toleranciaDepoisMinutos": 30,
+          "ativa": true,
+          "prescritoPor": "Dr. Paulo Andrade CRM-GO 00000",
+          "inicioEm": "2026-08-18",
+          "observacao": "Joao tem Cefaliv E Dipirona ativos. Cefaliv contem dipirona 350mg. Se o cuidador disser apenas 'dipirona', ha dois candidatos validos e o reconciliador deve pedir a concentracao."
+        },
+        {
+          "id": "presc-joao-losartana",
+          "medicamentoId": "med-losartana-50",
+          "dose": "1 comprimido",
+          "horarios": ["08:00"],
+          "toleranciaAntesMinutos": 30,
+          "toleranciaDepoisMinutos": 30,
+          "ativa": true,
+          "prescritoPor": "Dr. Paulo Andrade CRM-GO 00000",
+          "inicioEm": "2026-08-18",
+          "observacao": "Par LASA com a olmesartana abaixo. REMOVER junto com os medicamentos LASA se o D7 nao comprar as caixas."
+        },
+        {
+          "id": "presc-joao-olmesartana",
+          "medicamentoId": "med-olmesartana-20",
+          "dose": "1 comprimido",
+          "horarios": ["08:00"],
+          "toleranciaAntesMinutos": 30,
+          "toleranciaDepoisMinutos": 30,
+          "ativa": true,
+          "prescritoPor": "Dr. Paulo Andrade CRM-GO 00000",
+          "inicioEm": "2026-08-18",
+          "observacao": "Mesmo horario da losartana de proposito: os dois candidatos LASA ficam na janela ao mesmo tempo. REMOVER junto com os medicamentos LASA se o D7 nao comprar as caixas."
+        }
+      ]
+    },
+    {
+      "id": "res-ana-oliveira",
+      "nomeCompleto": "Ana Oliveira",
+      "nomeChamado": "dona Ana",
+      "dataNascimento": "1945-07-25",
+      "quarto": "03A",
+      "audioNomePath": "audio/residentes/ana-oliveira.wav",
+      "galeriaFacial": "galeria/res-ana-oliveira/",
+      "prescricoes": [
+        {
+          "id": "presc-ana-resfenol",
+          "medicamentoId": "med-resfenol-400",
+          "dose": "1 capsula",
+          "horarios": ["09:00", "21:00"],
+          "toleranciaAntesMinutos": 30,
+          "toleranciaDepoisMinutos": 30,
+          "ativa": true,
+          "prescritoPor": "Dra. Helena Ribeiro CRM-GO 00000",
+          "inicioEm": "2026-08-22"
+        }
+      ],
+      "observacao": "Residente sem Cefaliv prescrito. Usada no cenario de divergencia: cuidador aponta Cefaliv para Ana, que nao tem esse medicamento na prescricao."
+    }
+  ],
+
+  "cuidadores": [
+    {
+      "id": "cui-ana-paula",
+      "nome": "Ana Paula Ferreira",
+      "turno": "manha",
+      "coren": "COREN-GO 000000"
+    },
+    {
+      "id": "cui-carla",
+      "nome": "Carla Mendes",
+      "turno": "tarde",
+      "coren": "COREN-GO 000000"
+    }
+  ],
+
+  "historicoSeed": [
+    {
+      "id": "evt-seed-001",
+      "residenteId": "res-maria-santos",
+      "prescricaoId": "presc-maria-resfenol",
+      "cuidadorId": "cui-carla",
+      "administradoEm": {
+        "ancoraHorario": "14:00",
+        "offsetMinutos": 5
+      },
+      "veredito": "CONFIRMED",
+      "observacao": "Tempo relativo, resolvido pelo Clock na carga do seed: 5 minutos apos o horario 14:00 do dia corrente. Semeado para o cenario D5. Se o cuidador tentar dar Resfenol para Maria na janela das 14h, o sistema deve desaconselhar ativamente e informar quem ja administrou."
+    }
+  ],
+
+  "cenariosDemo": {
+    "casoFeliz": {
+      "card": "D2",
+      "horaSimulada": "08:10",
+      "residente": "res-maria-santos",
+      "medicamentoDeclarado": "med-resfenol-400",
+      "medicamentoNaCaixa": "med-resfenol-400",
+      "esperado": "CONFIRMED"
+    },
+    "divergenciaMedicamento": {
+      "card": "D3",
+      "horaSimulada": "09:10",
+      "residente": "res-ana-oliveira",
+      "medicamentoDeclarado": "med-resfenol-400",
+      "medicamentoNaCaixa": "med-cefaliv",
+      "esperado": "DIVERGENT",
+      "observacao": "Ana nao tem Cefaliv prescrito. A caixa lida nao esta entre os candidatos ativos dela. Sem override possivel."
+    },
+    "incerteza": {
+      "card": "D4",
+      "horaSimulada": "08:10",
+      "residente": "res-maria-santos",
+      "condicao": "caixa amassada ou contraluz, OCR sem candidato acima do limiar",
+      "esperado": "UNCERTAIN"
+    },
+    "doseJaAdministrada": {
+      "card": "D5",
+      "horaSimulada": "14:10",
+      "residente": "res-maria-santos",
+      "medicamentoDeclarado": "med-resfenol-400",
+      "medicamentoNaCaixa": "med-resfenol-400",
+      "esperado": "DIVERGENT",
+      "observacao": "Existe registro em historicoSeed as 14:05 por Carla. Unico cenario em que o sistema desaconselha ativamente."
+    },
+    "ambiguidadePrincipioAtivo": {
+      "card": "extra",
+      "horaSimulada": "16:10",
+      "residente": "res-joao-costa",
+      "falaDoCuidador": "dipirona",
+      "candidatos": ["med-cefaliv", "med-dipirona-500"],
+      "esperado": "UNCERTAIN",
+      "observacao": "Dois medicamentos ativos contem dipirona. Ambiguidade e resolvida na reconciliacao, antes da checagem de janela, entao vale mesmo com o Cefaliv fora do horario. O sistema pede a concentracao antes de confirmar."
+    },
+    "lasaFonetico": {
+      "card": "extra",
+      "horaSimulada": "08:10",
+      "residente": "res-joao-costa",
+      "falaDoCuidador": "losartana",
+      "candidatos": ["med-losartana-50", "med-olmesartana-20"],
+      "esperado": "UNCERTAIN",
+      "observacao": "Cenario E4. Os dois estao na janela das 08:00 e sao par LASA declarado. Independente da confianca da transcricao o sistema nao escolhe: pede a concentracao. REMOVER se o D7 nao comprar as caixas."
+    }
+  },
+
+  "notas": [
+    "Este arquivo e consumido por duas pontas: em runtime pelo app Android, a partir de assets, e offline pelo ferramental de preparacao em tools/, que gera os artefatos apontados por audioPath, audioNomePath e galeriaFacial. A fronteira e offline contra runtime: preparacao produz artefatos commitados, runtime e Kotlin no aparelho. Nenhuma dependencia de preparacao entra no APK.",
+    "Todos os residentes e cuidadores sao ficticios. Nenhum dado pessoal real.",
+    "CRM e COREN zerados de proposito, sao placeholders.",
+    "Mudancas do schema v1 para o v2: flagLasa boolean virou lasaCom lista de ids; toleranciaMinutos virou toleranciaAntesMinutos e toleranciaDepoisMinutos; historicoSeed.administradoEm virou tempo relativo resolvido pelo Clock; adicionado bloco configuracao com cuidadorAtivoPadrao; adicionado horaSimulada em cada cenario de demo; sinonimos derivaveis do nomeComercial ou dos principiosAtivos foram removidos.",
+    "Sinonimos agora contem apenas o que NAO e derivavel: nomes de marca alternativos e denominacoes populares. Match por principio ativo e por normalizacao do nome comercial sai do campo estruturado, no reconciliador.",
+    "audioPath e audioNomePath apontam para arquivos que o card S7 vai gerar com o Piper. O loader deve tolerar ausencia e cair para TTS em runtime.",
+    "galeriaFacial aponta para as pastas que o card V1 vai popular com 5 a 10 capturas por pessoa. O loader deve tolerar ausencia e cair para identificacao manual.",
+    "horaSimulada existe para o Clock injetavel: cada cenario fixa a hora do sistema para que o resultado seja deterministico independente do horario da apresentacao."
+  ]
+}
